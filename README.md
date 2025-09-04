@@ -1,8 +1,18 @@
-# LICEA - Educational Platform
+# 🎓 LICEA Educational Platform
 
-A complete educational platform similar to Classroom or Teams, with backend, frontend, database, security, reports, and artificial intelligence features.
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-4.9-blue.svg)](https://www.typescriptlang.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange.svg)](https://mysql.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Features
+A complete **Learning Management System (LMS)** built with modern web technologies. LICEA provides everything needed to manage educational institutions, courses, students, and instructors in one comprehensive platform.
+
+> **LICEA** stands for *Learning • Innovation • Collaboration • Excellence • Achievement*
+
+![LICEA Platform Preview](docs/images/preview.png)
+
+## ✨ Features
 
 - **Multi-role system**: Admin, Instructor, and Student roles
 - **Course Management**: Create and manage courses, materials, and assignments
@@ -35,13 +45,20 @@ A complete educational platform similar to Classroom or Teams, with backend, fro
 - Statistical Analysis for Performance Monitoring
 - Machine Learning for Risk Detection
 
-## Quick Start
+## 🚀 Quick Start
 
-1. **Clone and Setup**
-   ```bash
-   git clone <repository-url>
-   cd licea-educational-platform
-   ```
+### Windows (Automatic)
+```powershell
+git clone https://github.com/yourusername/licea-educational-platform.git
+cd licea-educational-platform
+.\install.ps1
+.\start-all.ps1
+```
+
+### Manual Installation
+```bash
+git clone https://github.com/yourusername/licea-educational-platform.git
+cd licea-educational-platform
 
 2. **Database Setup**
    ```bash
