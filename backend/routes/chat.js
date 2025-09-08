@@ -6,41 +6,324 @@ const { APIError, asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
-// Simple AI responses for educational queries
-const generateAIResponse = (message, userContext) => {
+// Intelligent AI responses with database context
+const generateAIResponse = async (message, userContext) => {
   const lowerMessage = message.toLowerCase();
+  const db = require('../config/database');
   
-  // FAQ responses
-  if (lowerMessage.includes('assignment') || lowerMessage.includes('task') || lowerMessage.includes('homework')) {
-    return "I can help you with assignments! You can view your current assignments in the dashboard. If you need help with a specific assignment, please let me know which course it's for and I'll provide more details.";
+  try {
+    // Análisis de rendimiento y alertas
+    if (lowerMessage.includes('rendimiento') || lowerMessage.includes('desempeño') || lowerMessage.includes('performance') || lowerMessage.includes('how am i doing')) {
+      const [performance] = await db.execute(`
+        SELECT 
+          AVG(CASE WHEN s.grade IS NOT NULL THEN s.grade END) as overall_average,
+          COUNT(DISTINCT ce.course_id) as enrolled_courses,
+          COUNT(CASE WHEN s.grade >= 3.0 THEN 1 END) as passing_tasks,
+          COUNT(CASE WHEN s.grade < 3.0 AND s.grade IS NOT NULL THEN 1 END) as failing_tasks
+        FROM course_enrollments ce
+        LEFT JOIN tasks t ON ce.course_id = t.course_id AND t.is_published = TRUE
+        LEFT JOIN submissions s ON t.id = s.task_id AND s.student_id = ce.student_id AND s.status = 'graded'
+        WHERE ce.student_id = ? AND ce.status = 'active'
+      `, [userContext.id]);
+      
+      const stats = performance[0];
+      if (stats.overall_average) {
+        return `📊 **Tu Rendimiento Académico:**\n\n` +
+               `🎯 Promedio general: **${stats.overall_average.toFixed(2)}/5.0**\n` +
+               `📚 Cursos activos: **${stats.enrolled_courses}**\n` +
+               `✅ Talleres aprobados: **${stats.passing_tasks || 0}**\n` +
+               `❌ Talleres por mejorar: **${stats.failing_tasks || 0}**\n\n` +
+               `${stats.overall_average >= 4.0 ? '🎉 ¡Excelente trabajo! Mantén el buen ritmo.' :
+                 stats.overall_average >= 3.0 ? '👍 Vas bien. Considera estudiar un poco más para mejorar.' :
+                 '⚠️ Necesitas mejorar tu rendimiento. Te recomiendo solicitar apoyo a tus instructores.'}`;
+      }
+      return "📊 Aún no tienes calificaciones registradas. Una vez que tus instructores califiquen tus trabajos, podrás ver tu rendimiento aquí.";
+    }
+    
+    // Talleres y entregas pendientes
+    if (lowerMessage.includes('taller') || lowerMessage.includes('assignment') || lowerMessage.includes('task') || lowerMessage.includes('entrega') || lowerMessage.includes('pending') || lowerMessage.includes('upcoming')) {
+      const [tasks] = await db.execute(`
+        SELECT 
+          t.id,
+          t.title,
+          t.due_date,
+          c.name as course_name,
+          s.status as submission_status,
+          CASE WHEN t.due_date < NOW() THEN 1 ELSE 0 END as is_overdue
+        FROM tasks t
+        JOIN courses c ON t.course_id = c.id
+        JOIN course_enrollments ce ON c.id = ce.course_id
+        LEFT JOIN submissions s ON t.id = s.task_id AND s.student_id = ce.student_id
+        WHERE ce.student_id = ? AND ce.status = 'active' 
+          AND t.is_published = TRUE
+          AND (s.id IS NULL OR s.status IN ('draft', 'submitted'))
+        ORDER BY t.due_date ASC
+        LIMIT 5
+      `, [userContext.id]);
+      
+      if (tasks.length === 0) {
+        return "🎉 ¡Excelente! No tienes talleres pendientes por entregar. Es un buen momento para repasar material o adelantar trabajo.";
+      }
+      
+      let response = `📋 **Tus Talleres Pendientes:**\n\n`;
+      tasks.forEach((task, index) => {
+        const dueDate = new Date(task.due_date);
+        const isOverdue = task.is_overdue;
+        const status = task.submission_status;
+        const statusEmoji = isOverdue ? '🔴' : (status === 'draft' ? '📝' : '📝');
+        
+        response += `${statusEmoji} **${task.title}**\n`;
+        response += `   📚 Curso: ${task.course_name}\n`;
+        response += `   ⏰ Fecha límite: ${dueDate.toLocaleDateString('es')} ${dueDate.toLocaleTimeString('es', {hour: '2-digit', minute: '2-digit'})}\n`;
+        response += `   ${isOverdue ? '⚠️ **VENCIDO**' : status === 'draft' ? '📝 Borrador guardado' : '⏳ Pendiente de entrega'}\n\n`;
+      });
+      
+      const overdueCount = tasks.filter(t => t.is_overdue).length;
+      if (overdueCount > 0) {
+        response += `⚠️ **Tienes ${overdueCount} taller(es) vencido(s). Te recomiendo contactar a tus instructores.**`;
+      }
+      
+      return response;
+    }
+    
+    // Cronograma y horarios
+    if (lowerMessage.includes('cronograma') || lowerMessage.includes('schedule') || lowerMessage.includes('horario') || lowerMessage.includes('agenda') || lowerMessage.includes('calendario')) {
+      const [events] = await db.execute(`
+        SELECT 
+          s.title,
+          s.activity_type,
+          s.start_time,
+          s.priority,
+          c.name as course_name
+        FROM schedules s
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE s.user_id = ? 
+          AND s.start_time >= NOW()
+          AND s.status != 'cancelled'
+        ORDER BY s.start_time ASC
+        LIMIT 10
+      `, [userContext.id]);
+      
+      if (events.length === 0) {
+        return "📅 No tienes eventos programados próximamente. ¿Te gustaría que te ayude a crear un horario de estudio personalizado?";
+      }
+      
+      let response = `📅 **Tu Cronograma Próximo:**\n\n`;
+      events.forEach((event) => {
+        const startTime = new Date(event.start_time);
+        const typeEmoji = {
+          'task': '📝',
+          'exam': '📊',
+          'class': '🎓',
+          'meeting': '👥',
+          'study': '📚',
+          'other': '📌'
+        }[event.activity_type] || '📌';
+        
+        const priorityText = event.priority === 'high' ? '🔴 Alta' : event.priority === 'medium' ? '🟡 Media' : '🟢 Baja';
+        
+        response += `${typeEmoji} **${event.title}**\n`;
+        response += `   📅 ${startTime.toLocaleDateString('es')} a las ${startTime.toLocaleTimeString('es', {hour: '2-digit', minute: '2-digit'})}\n`;
+        if (event.course_name) {
+          response += `   📚 Curso: ${event.course_name}\n`;
+        }
+        response += `   ⭐ Prioridad: ${priorityText}\n\n`;
+      });
+      
+      return response;
+    }
+    
+    // Calificaciones y notas
+    if (lowerMessage.includes('calificacion') || lowerMessage.includes('nota') || lowerMessage.includes('grade') || lowerMessage.includes('score')) {
+      const [grades] = await db.execute(`
+        SELECT 
+          s.grade,
+          s.graded_at,
+          t.title as task_title,
+          t.max_grade,
+          c.name as course_name,
+          s.feedback
+        FROM submissions s
+        JOIN tasks t ON s.task_id = t.id
+        JOIN courses c ON t.course_id = c.id
+        WHERE s.student_id = ? AND s.status = 'graded' AND s.grade IS NOT NULL
+        ORDER BY s.graded_at DESC
+        LIMIT 5
+      `, [userContext.id]);
+      
+      if (grades.length === 0) {
+        return "📊 Aún no tienes calificaciones registradas. Cuando tus instructores califiquen tus trabajos, aparecerán aquí.";
+      }
+      
+      let response = `📊 **Tus Calificaciones Recientes:**\n\n`;
+      grades.forEach((grade) => {
+        const percentage = (grade.grade / grade.max_grade * 100).toFixed(1);
+        const emoji = grade.grade >= 4.0 ? '🎉' : grade.grade >= 3.0 ? '👍' : '📈';
+        
+        response += `${emoji} **${grade.task_title}**\n`;
+        response += `   📚 ${grade.course_name}\n`;
+        response += `   📊 Calificación: **${grade.grade}/${grade.max_grade}** (${percentage}%)\n`;
+        if (grade.feedback) {
+          response += `   💬 Feedback: ${grade.feedback.substring(0, 100)}${grade.feedback.length > 100 ? '...' : ''}\n`;
+        }
+        response += `   📅 ${new Date(grade.graded_at).toLocaleDateString('es')}\n\n`;
+      });
+      
+      return response;
+    }
+    
+    // Cursos matriculados
+    if (lowerMessage.includes('curso') || lowerMessage.includes('materia') || lowerMessage.includes('course') || lowerMessage.includes('class') || lowerMessage.includes('enrolled')) {
+      const [courses] = await db.execute(`
+        SELECT 
+          c.name,
+          c.code,
+          u.name as instructor_name,
+          ce.enrollment_date,
+          COUNT(DISTINCT t.id) as total_tasks,
+          COUNT(DISTINCT s.id) as submitted_tasks,
+          AVG(CASE WHEN s.grade IS NOT NULL THEN s.grade END) as course_average
+        FROM course_enrollments ce
+        JOIN courses c ON ce.course_id = c.id
+        JOIN users u ON c.instructor_id = u.id
+        LEFT JOIN tasks t ON c.id = t.course_id AND t.is_published = TRUE
+        LEFT JOIN submissions s ON t.id = s.task_id AND s.student_id = ce.student_id AND s.status = 'graded'
+        WHERE ce.student_id = ? AND ce.status = 'active'
+        GROUP BY c.id, c.name, c.code, u.name, ce.enrollment_date
+      `, [userContext.id]);
+      
+      if (courses.length === 0) {
+        return "📚 No estás matriculado en ningún curso actualmente. Contacta a tu administrador para la inscripción en cursos.";
+      }
+      
+      let response = `📚 **Tus Cursos Activos:**\n\n`;
+      courses.forEach((course) => {
+        response += `📖 **${course.name}** (${course.code})\n`;
+        response += `   👨‍🏫 Instructor: ${course.instructor_name}\n`;
+        response += `   📊 Talleres: ${course.submitted_tasks || 0}/${course.total_tasks || 0} entregados\n`;
+        if (course.course_average) {
+          response += `   📈 Promedio: ${course.course_average.toFixed(2)}/5.0\n`;
+        }
+        response += `   📅 Matriculado desde: ${new Date(course.enrollment_date).toLocaleDateString('es')}\n\n`;
+      });
+      
+      return response;
+    }
+    
+    // Alertas y recomendaciones
+    if (lowerMessage.includes('alerta') || lowerMessage.includes('recomendacion') || lowerMessage.includes('alert') || lowerMessage.includes('recommendation') || lowerMessage.includes('advice')) {
+      const [alerts] = await db.execute(`
+        SELECT 
+          a.risk_level,
+          a.title,
+          a.description,
+          a.recommendation,
+          c.name as course_name
+        FROM alerts a
+        LEFT JOIN courses c ON a.course_id = c.id
+        WHERE a.student_id = ? AND a.is_resolved = FALSE
+        ORDER BY 
+          CASE a.risk_level 
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2  
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          a.created_at DESC
+        LIMIT 3
+      `, [userContext.id]);
+      
+      if (alerts.length === 0) {
+        return "🎉 ¡Excelente! No tienes alertas activas. Tu rendimiento académico está en buen estado. ¡Sigue así!";
+      }
+      
+      let response = `⚠️ **Alertas y Recomendaciones:**\n\n`;
+      alerts.forEach((alert) => {
+        const riskEmoji = {
+          'critical': '🔴',
+          'high': '🟠',
+          'medium': '🟡',
+          'low': '🟢'
+        }[alert.risk_level] || '🟡';
+        
+        response += `${riskEmoji} **${alert.title}**\n`;
+        if (alert.course_name) {
+          response += `   📚 Curso: ${alert.course_name}\n`;
+        }
+        response += `   📝 ${alert.description}\n`;
+        if (alert.recommendation) {
+          response += `   💡 Recomendación: ${alert.recommendation}\n`;
+        }
+        response += `\n`;
+      });
+      
+      return response;
+    }
+    
+    // Ayuda y comandos disponibles
+    if (lowerMessage.includes('help') || lowerMessage.includes('ayuda') || lowerMessage.includes('comandos') || lowerMessage.includes('que puedes hacer')) {
+      return `🤖 **Asistente Virtual LICEA**\n\n` +
+             `Puedo ayudarte con:\n\n` +
+             `📊 **Rendimiento:** "¿Cómo va mi rendimiento?" o "Mi desempeño"\n` +
+             `📋 **Talleres:** "Talleres pendientes" o "Próximas entregas"\n` +
+             `📅 **Cronograma:** "Mi horario" o "Agenda de hoy"\n` +
+             `📊 **Calificaciones:** "Mis notas" o "Últimas calificaciones"\n` +
+             `📚 **Cursos:** "Mis materias" o "Cursos matriculados"\n` +
+             `⚠️ **Alertas:** "Recomendaciones" o "Alertas académicas"\n\n` +
+             `💡 **Tip:** Puedes hacer preguntas en español o inglés, ¡soy bilingüe!`;
+    }
+    
+    // Saludos
+    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hola') || lowerMessage.includes('buenos') || lowerMessage.includes('buenas')) {
+      const currentHour = new Date().getHours();
+      const greeting = currentHour < 12 ? 'Buenos días' : currentHour < 18 ? 'Buenas tardes' : 'Buenas noches';
+      
+      return `${greeting} ${userContext.name}! 👋\n\n` +
+             `Soy tu asistente virtual de LICEA. Estoy aquí para ayudarte con:\n` +
+             `• 📊 Seguimiento de tu rendimiento académico\n` +
+             `• 📋 Gestión de talleres y entregas\n` +
+             `• 📅 Organización de tu cronograma\n` +
+             `• 💡 Recomendaciones personalizadas\n\n` +
+             `¿En qué puedo asistirte hoy?`;
+    }
+    
+    // Respuesta por defecto con sugerencias inteligentes
+    const [quickStats] = await db.execute(`
+      SELECT 
+        COUNT(DISTINCT CASE WHEN t.due_date > NOW() AND (s.id IS NULL OR s.status = 'draft') THEN t.id END) as pending_tasks,
+        COUNT(DISTINCT CASE WHEN a.is_resolved = FALSE THEN a.id END) as active_alerts
+      FROM course_enrollments ce
+      LEFT JOIN tasks t ON ce.course_id = t.course_id AND t.is_published = TRUE
+      LEFT JOIN submissions s ON t.id = s.task_id AND s.student_id = ce.student_id
+      LEFT JOIN alerts a ON a.student_id = ce.student_id
+      WHERE ce.student_id = ? AND ce.status = 'active'
+    `, [userContext.id]);
+    
+    const stats = quickStats[0];
+    let suggestions = [];
+    
+    if (stats.pending_tasks > 0) {
+      suggestions.push(`📋 Pregúntame sobre tus **${stats.pending_tasks} talleres pendientes**`);
+    }
+    if (stats.active_alerts > 0) {
+      suggestions.push(`⚠️ Tienes **${stats.active_alerts} alertas** - pregúntame por recomendaciones`);
+    }
+    suggestions.push(`📊 Consulta tu **rendimiento académico**`);
+    suggestions.push(`📅 Revisa tu **cronograma** de actividades`);
+    
+    return `🤖 Entiendo que quieres información sobre tus estudios. Te puedo ayudar con muchas cosas:\n\n` +
+           suggestions.join('\n') + `\n\n` +
+           `💡 **Ejemplos de preguntas:**\n` +
+           `• "¿Cómo va mi rendimiento?"\n` +
+           `• "Talleres pendientes"\n` +
+           `• "Mi cronograma de hoy"\n` +
+           `• "Últimas calificaciones"\n\n` +
+           `¿Qué información específica necesitas?`;
+           
+  } catch (error) {
+    console.error('Error en generateAIResponse:', error);
+    return "😅 Lo siento, tuve un pequeño problema técnico. ¿Podrías repetir tu pregunta? Mientras tanto, puedes consultar tu dashboard para ver información actualizada de tus cursos.";
   }
-  
-  if (lowerMessage.includes('deadline') || lowerMessage.includes('due date')) {
-    return "To check your upcoming deadlines, go to your dashboard where you'll see all assignments and their due dates. I can also help you create a study schedule if needed!";
-  }
-  
-  if (lowerMessage.includes('grade') || lowerMessage.includes('score')) {
-    return "Your grades are available in the dashboard under each course. If you have questions about a specific grade, you can contact your instructor through the course page.";
-  }
-  
-  if (lowerMessage.includes('schedule') || lowerMessage.includes('timetable')) {
-    return "I can help you organize your study schedule! Based on your current courses and assignments, I can suggest optimal study times. Would you like me to create a personalized schedule for you?";
-  }
-  
-  if (lowerMessage.includes('course') || lowerMessage.includes('class')) {
-    return "You can view all your enrolled courses in the dashboard. Each course page contains materials, assignments, and announcements from your instructor.";
-  }
-  
-  if (lowerMessage.includes('help') || lowerMessage.includes('support')) {
-    return "I'm here to help! I can assist you with:\n• Finding assignments and deadlines\n• Checking grades and feedback\n• Creating study schedules\n• Navigating the platform\n• Course information\n\nWhat would you like help with?";
-  }
-  
-  if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-    return `Hello ${userContext.name}! I'm your LICEA study assistant. I'm here to help you with your courses, assignments, and study planning. How can I assist you today?`;
-  }
-  
-  // Default response
-  return "I understand you're asking about your studies. I can help you with assignments, deadlines, grades, course information, and study planning. Could you be more specific about what you need help with?";
 };
 
 /**
@@ -177,7 +460,7 @@ router.post('/conversations/:id/messages',
     }
     
     // Generate AI response
-    const aiResponse = generateAIResponse(message, req.user);
+    const aiResponse = await generateAIResponse(message, req.user);
     
     // Store both user message and AI response
     const queries = [
