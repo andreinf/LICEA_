@@ -15,15 +15,16 @@ const emailService = require('../services/emailService');
 
 const router = express.Router();
 
-// Rate limiting for auth endpoints
+// Rate limiting for auth endpoints - more permissive for development
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  windowMs: process.env.NODE_ENV === 'production' ? 15 * 60 * 1000 : 5 * 60 * 1000, // 5 minutes in dev, 15 in prod
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // 50 attempts in dev, 5 in prod
   message: {
     error: 'Too many authentication attempts, please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'development' && req.ip === '::1', // Skip rate limiting for localhost in dev
 });
 
 // Strict rate limiting for password reset
@@ -151,18 +152,28 @@ router.post('/register',
     const results = await executeTransaction(queries);
     const userId = results[0].insertId;
 
-    // Insert email verification token
-    await executeQuery(
-      'INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)',
-      [userId, verificationToken, tokenExpiry]
-    );
+    // In development, auto-verify users; in production, require email verification
+    if (process.env.NODE_ENV === 'development') {
+      // Auto-verify in development
+      await executeQuery(
+        'UPDATE users SET is_verified = true WHERE id = ?',
+        [userId]
+      );
+      console.log(`🔓 Auto-verified user ${email} for development`);
+    } else {
+      // Insert email verification token for production
+      await executeQuery(
+        'INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)',
+        [userId, verificationToken, tokenExpiry]
+      );
 
-    // Send verification email
-    try {
-      await emailService.sendVerificationEmail(email, name, verificationToken);
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-      // Don't fail registration if email sending fails
+      // Send verification email
+      try {
+        await emailService.sendVerificationEmail(email, name, verificationToken);
+      } catch (error) {
+        console.error('Failed to send verification email:', error);
+        // Don't fail registration if email sending fails
+      }
     }
 
     res.status(201).json({
@@ -217,7 +228,7 @@ router.post('/verify-email',
     // Update user as verified and delete verification token
     const queries = [
       {
-        sql: 'UPDATE users SET email_verified = true WHERE id = ?',
+        sql: 'UPDATE users SET is_verified = true WHERE id = ?',
         params: [verification.user_id]
       },
       {
@@ -263,7 +274,7 @@ router.post('/login',
 
     // Get user with password
     const users = await executeQuery(
-      `SELECT id, name, email, role, password_hash, email_verified, is_active, 
+      `SELECT id, name, email, role, password_hash, is_verified, is_active, 
               failed_login_attempts, locked_until 
        FROM users WHERE email = ?`,
       [email]
@@ -313,7 +324,7 @@ router.post('/login',
     }
 
     // Check email verification
-    if (!user.email_verified) {
+    if (!user.is_verified) {
       throw new APIError('Please verify your email address before logging in', 403, 'EMAIL_NOT_VERIFIED');
     }
 

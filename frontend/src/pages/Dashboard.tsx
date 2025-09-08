@@ -7,6 +7,8 @@ import InstructorDashboard from '../components/dashboards/InstructorDashboard';
 import StudentDashboard from '../components/dashboards/StudentDashboard';
 import CoursesPage from '../components/courses/CoursesPage';
 import ChatPage from '../components/chat/ChatPage';
+import Schedule from './Schedule';
+import Chatbot from './Chatbot';
 
 const Dashboard: React.FC = () => {
   const { user, hasRole } = useAuth();
@@ -48,6 +50,8 @@ const Dashboard: React.FC = () => {
         
         {/* Common Routes */}
         <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/chat" element={<ChatPage />} />
         
         {/* Catch all */}

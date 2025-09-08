@@ -25,62 +25,87 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       current: location.pathname === `/dashboard/${user?.role}`,
     },
     {
-      name: 'Courses',
+      name: 'Cursos',
       href: '/dashboard/courses',
       icon: '📚',
       current: location.pathname.startsWith('/dashboard/courses'),
     },
     {
-      name: 'AI Chat',
-      href: '/dashboard/chat',
+      name: 'Cronograma',
+      href: '/dashboard/schedule',
+      icon: '📅',
+      current: location.pathname.startsWith('/dashboard/schedule'),
+    },
+    {
+      name: 'Asistente IA',
+      href: '/dashboard/chatbot',
       icon: '🤖',
-      current: location.pathname.startsWith('/dashboard/chat'),
+      current: location.pathname.startsWith('/dashboard/chatbot'),
     },
   ];
 
   // Add role-specific navigation items
   if (user?.role === 'admin') {
     navigation.splice(1, 0, {
-      name: 'Users',
+      name: 'Usuarios',
       href: '/dashboard/users',
       icon: '👥',
       current: location.pathname.startsWith('/dashboard/users'),
     });
     navigation.splice(2, 0, {
-      name: 'Reports',
+      name: 'Reportes',
       href: '/dashboard/reports',
       icon: '📊',
       current: location.pathname.startsWith('/dashboard/reports'),
     });
+    // Add after the main navigation items
+    navigation.push({
+      name: 'Configuración',
+      href: '/dashboard/settings',
+      icon: '⚙️',
+      current: location.pathname.startsWith('/dashboard/settings'),
+    });
   }
 
   if (user?.role === 'instructor') {
-    navigation.splice(2, 0, {
-      name: 'Assignments',
+    navigation.push({
+      name: 'Tareas',
       href: '/dashboard/assignments',
       icon: '📝',
       current: location.pathname.startsWith('/dashboard/assignments'),
     });
-    navigation.splice(3, 0, {
-      name: 'Students',
+    navigation.push({
+      name: 'Estudiantes',
       href: '/dashboard/students',
       icon: '🎓',
       current: location.pathname.startsWith('/dashboard/students'),
     });
+    navigation.push({
+      name: 'Calificaciones',
+      href: '/dashboard/grading',
+      icon: '📊',
+      current: location.pathname.startsWith('/dashboard/grading'),
+    });
   }
 
   if (user?.role === 'student') {
-    navigation.splice(2, 0, {
-      name: 'Assignments',
+    navigation.push({
+      name: 'Mis Tareas',
       href: '/dashboard/assignments',
       icon: '📝',
       current: location.pathname.startsWith('/dashboard/assignments'),
     });
-    navigation.splice(3, 0, {
-      name: 'Grades',
+    navigation.push({
+      name: 'Calificaciones',
       href: '/dashboard/grades',
       icon: '📈',
       current: location.pathname.startsWith('/dashboard/grades'),
+    });
+    navigation.push({
+      name: 'Progreso',
+      href: '/dashboard/progress',
+      icon: '📈',
+      current: location.pathname.startsWith('/dashboard/progress'),
     });
   }
 

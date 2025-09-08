@@ -9,10 +9,9 @@ const dbConfig = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'licea_platform',
   connectionLimit: 10,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  idleTimeout: 60000,
+  queueLimit: 0
 };
 
 // Create connection pool

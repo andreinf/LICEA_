@@ -12,24 +12,29 @@ const { testConnection } = require('./config/database');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
-const { auditLogger } = require('./middleware/auditLogger');
+// const { auditLogger } = require('./middleware/auditLogger'); // comentado temporalmente
 
-// Import routes
+// Import routes - usando versiones simples sin problemas ESM
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const courseRoutes = require('./routes/courses');
-const materialRoutes = require('./routes/materials');
-const taskRoutes = require('./routes/tasks');
-const submissionRoutes = require('./routes/submissions');
-const attendanceRoutes = require('./routes/attendance');
-const alertRoutes = require('./routes/alerts');
-const scheduleRoutes = require('./routes/schedules');
-const reportRoutes = require('./routes/reports');
-const chatRoutes = require('./routes/chat');
+// const userRoutes = require('./routes/users');
+// const courseRoutes = require('./routes/courses');
+// const materialRoutes = require('./routes/materials');
+// const taskRoutes = require('./routes/tasks');
+// const submissionRoutes = require('./routes/submissions');
+// const attendanceRoutes = require('./routes/attendance');
+// const alertRoutes = require('./routes/alerts');
+const scheduleRoutes = require('./routes/schedules-simple');
+// const reportRoutes = require('./routes/reports');
+const chatRoutes = require('./routes/chat-simple');
 
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Trust proxy for rate limiting (development only)
+if (process.env.NODE_ENV === 'development') {
+  app.set('trust proxy', 1);
+}
 
 // Swagger configuration
 const swaggerOptions = {
@@ -98,7 +103,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('combined'));
 
 // Audit logging middleware
-app.use(auditLogger);
+// app.use(auditLogger); // comentado temporalmente
 
 // API documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -116,17 +121,17 @@ app.get('/health', (req, res) => {
 // Static files for uploads
 app.use('/uploads', express.static('uploads'));
 
-// API routes
+// API routes - habilitando rutas simples funcionando
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/courses', courseRoutes);
-app.use('/api/materials', materialRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/submissions', submissionRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/alerts', alertRoutes);
+// app.use('/api/users', userRoutes);
+// app.use('/api/courses', courseRoutes);
+// app.use('/api/materials', materialRoutes);
+// app.use('/api/tasks', taskRoutes);
+// app.use('/api/submissions', submissionRoutes);
+// app.use('/api/attendance', attendanceRoutes);
+// app.use('/api/alerts', alertRoutes);
 app.use('/api/schedules', scheduleRoutes);
-app.use('/api/reports', reportRoutes);
+// app.use('/api/reports', reportRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Welcome message
