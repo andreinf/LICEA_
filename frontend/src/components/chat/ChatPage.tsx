@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { chatAPI, handleAPIError } from '../../services/api';
+import { chatAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 interface Message {
@@ -15,7 +15,15 @@ const ChatPage: React.FC = () => {
     {
       id: '1',
       sender: 'ai',
-      content: `Hello ${user?.name}! I'm your LICEA study assistant. I can help you with:\n\n• Finding assignments and deadlines\n• Checking grades and feedback\n• Creating study schedules\n• Course information\n• General study tips\n\nHow can I assist you today?`,
+      content: `Hello ${user?.name}! I'm your LICEA study assistant. I can help you with:
+
+• Finding assignments and deadlines
+• Checking grades and feedback
+• Creating study schedules
+• Course information
+• General study tips
+
+How can I assist you today?`,
       timestamp: new Date(),
     },
   ]);
@@ -199,13 +207,14 @@ const ChatPage: React.FC = () => {
                 <li>• Performance insights</li>
               </ul>
             </div>
+            
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">🎯 Personalized Help</h4>
+              <h4 className="font-medium text-gray-900 mb-2">🎯 Smart Features</h4>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Grade tracking and analysis</li>
-                <li>• Risk detection and alerts</li>
-                <li>• Study recommendations</li>
-                <li>• Platform navigation help</li>
+                <li>• Personalized study recommendations</li>
+                <li>• Intelligent scheduling</li>
+                <li>• Progress tracking</li>
+                <li>• Resource suggestions</li>
               </ul>
             </div>
           </div>

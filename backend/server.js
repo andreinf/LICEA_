@@ -29,7 +29,7 @@ const chatRoutes = require('./routes/chat');
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Swagger configuration
 const swaggerOptions = {
