@@ -17,7 +17,9 @@ const { errorHandler } = require('./middleware/errorHandler');
 // Import routes - usando versiones simples sin problemas ESM
 const authRoutes = require('./routes/auth');
 // const userRoutes = require('./routes/users');
-// const courseRoutes = require('./routes/courses');
+const coursesApiRoutes = require('./routes/courses-api');
+const gradesApiRoutes = require('./routes/grades-api');
+const schedulesApiRoutes = require('./routes/schedules-api');
 // const materialRoutes = require('./routes/materials');
 // const taskRoutes = require('./routes/tasks');
 // const submissionRoutes = require('./routes/submissions');
@@ -124,7 +126,9 @@ app.use('/uploads', express.static('uploads'));
 // API routes - habilitando rutas simples funcionando
 app.use('/api/auth', authRoutes);
 // app.use('/api/users', userRoutes);
-// app.use('/api/courses', courseRoutes);
+app.use('/api/courses', coursesApiRoutes);
+app.use('/api/grades', gradesApiRoutes);
+app.use('/api/schedules-new', schedulesApiRoutes);
 // app.use('/api/materials', materialRoutes);
 // app.use('/api/tasks', taskRoutes);
 // app.use('/api/submissions', submissionRoutes);

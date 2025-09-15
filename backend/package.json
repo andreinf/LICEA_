@@ -10,7 +10,13 @@
     "test-db": "node setup-database.js test",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["education", "platform", "api", "express", "mysql"],
+  "keywords": [
+    "education",
+    "platform",
+    "api",
+    "express",
+    "mysql"
+  ],
   "author": "LICEA Team",
   "license": "MIT",
   "dependencies": {
@@ -30,6 +36,7 @@
     "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {
+    "axios": "^1.12.2",
     "nodemon": "^3.0.0"
   }
 }

@@ -17,10 +17,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     navigate('/');
   };
 
-  const handleGoHome = () => {
-    navigate('/');
-  };
-
   const navigation = [
     {
       name: 'Dashboard',
@@ -144,7 +140,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </button>
         </div>
         
-        <nav className="mt-8 px-4 pb-32"> {/* Added padding bottom to avoid overlap */}
+        <nav className="mt-8 px-4">
           <ul className="space-y-2">
             {navigation.map((item) => (
               <li key={item.name}>
@@ -164,9 +160,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </ul>
         </nav>
 
-        {/* User info and buttons at bottom - Fixed positioning */}
-        <div className="fixed bottom-0 left-0 w-64 bg-white p-4 border-t border-gray-200 shadow-lg">
-          <div className="flex items-center space-x-3 mb-3">
+        {/* User info at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+          <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">
               {user?.name.charAt(0).toUpperCase()}
             </div>
@@ -179,72 +175,36 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               </p>
             </div>
           </div>
-          
-          {/* Action buttons */}
-          <div className="flex space-x-2">
-            <button
-              onClick={handleGoHome}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
-              title="Ir a página principal"
-            >
-              <span>🏠</span>
-              <span>Inicio</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-xs font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
-              title="Cerrar sesión"
-            >
-              <span>🚪</span>
-              <span>Salir</span>
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full mt-3 btn-secondary text-xs"
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
       {/* Main content */}
       <div className="lg:ml-64">
-        {/* Top header - Improved with better spacing */}
+        {/* Top header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-gray-600 hover:text-gray-900"
+            >
+              <span className="text-xl">☰</span>
+            </button>
+            
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-600 hover:text-gray-900"
-              >
-                <span className="text-xl">☰</span>
-              </button>
-              
               <h1 className="text-xl font-semibold text-gray-900 capitalize">
                 {user?.role} Dashboard
               </h1>
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Breadcrumb or current page indicator */}
-              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-500">
-                <span>Welcome, </span>
-                <span className="font-medium text-gray-900">{user?.name}</span>
-              </div>
-              
-              {/* Quick action buttons for desktop */}
-              <div className="hidden lg:flex items-center space-x-2">
-                <button
-                  onClick={handleGoHome}
-                  className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 flex items-center space-x-1"
-                  title="Ir a página principal"
-                >
-                  <span>🏠</span>
-                  <span>Inicio</span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 flex items-center space-x-1"
-                  title="Cerrar sesión"
-                >
-                  <span>🚪</span>
-                  <span>Salir</span>
-                </button>
+              <div className="text-sm text-gray-600">
+                Welcome, {user?.name}
               </div>
             </div>
           </div>
