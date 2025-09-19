@@ -34,23 +34,23 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-primary-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
           <div className="text-center">
             <h2 className="text-3xl font-bold text-primary-600">LICEA</h2>
-            <p className="text-sm text-gray-600">Educational Platform</p>
+            <p className="text-sm text-gray-600">Sistema Educativo</p>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+            Iniciar Sesión
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
+            O{' '}
             <Link
               to="/register"
               className="font-medium text-primary-600 hover:text-primary-500"
             >
-              create a new account
+              crear una nueva cuenta
             </Link>
           </p>
         </div>
@@ -65,19 +65,19 @@ const Login: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="label">
-                Email address
+                Correo Electrónico
               </label>
               <input
                 {...register('email', {
-                  required: 'Email is required',
+                  required: 'El correo electrónico es requerido',
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
+                    message: 'Formato de correo electrónico inválido',
                   },
                 })}
                 type="email"
                 className={`input ${errors.email ? 'input-error' : ''}`}
-                placeholder="Enter your email"
+                placeholder="Ingresa tu correo electrónico"
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-danger-600">{errors.email.message}</p>
@@ -86,19 +86,19 @@ const Login: React.FC = () => {
 
             <div>
               <label htmlFor="password" className="label">
-                Password
+                Contraseña
               </label>
               <input
                 {...register('password', {
-                  required: 'Password is required',
+                  required: 'La contraseña es requerida',
                   minLength: {
                     value: 6,
-                    message: 'Password must be at least 6 characters',
+                    message: 'La contraseña debe tener al menos 6 caracteres',
                   },
                 })}
                 type="password"
                 className={`input ${errors.password ? 'input-error' : ''}`}
-                placeholder="Enter your password"
+                placeholder="Ingresa tu contraseña"
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-danger-600">{errors.password.message}</p>
@@ -115,7 +115,7 @@ const Login: React.FC = () => {
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               />
               <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-900">
-                Remember me
+                Recordarme
               </label>
             </div>
 
@@ -124,7 +124,7 @@ const Login: React.FC = () => {
                 to="/forgot-password"
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
-                Forgot your password?
+                ¿Olvidaste tu contraseña?
               </Link>
             </div>
           </div>
@@ -138,7 +138,7 @@ const Login: React.FC = () => {
               {isLoading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
-                'Sign in'
+                'Iniciar Sesión'
               )}
             </button>
           </div>

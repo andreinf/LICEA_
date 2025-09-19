@@ -14,7 +14,7 @@
   }
   
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-primary-50 text-gray-800 antialiased;
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -45,7 +45,7 @@
   }
   
   .btn-secondary {
-    @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-primary-500;
+    @apply btn bg-white text-gray-700 border border-primary-200 hover:bg-primary-50 focus:ring-primary-500;
   }
   
   .btn-success {
@@ -89,7 +89,7 @@
   }
   
   .table-header {
-    @apply bg-gray-50;
+    @apply bg-primary-100;
   }
   
   .table-header-cell {
@@ -133,7 +133,7 @@
   }
   
   .sidebar-link-inactive {
-    @apply sidebar-link text-gray-600 hover:bg-gray-50 hover:text-gray-900;
+    @apply sidebar-link text-gray-600 hover:bg-primary-100 hover:text-gray-900;
   }
 }
 
@@ -154,6 +154,23 @@
   
   .text-shadow-lg {
     text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
+  
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
   }
 }
 
