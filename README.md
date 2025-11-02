@@ -11,7 +11,7 @@ Una plataforma **completa y funcional** de gestión educativa (LMS) construida c
 
 > **LICEA** significa *Learning • Innovation • Collaboration • Excellence • Achievement*
 
-## 🎉 Estado del Proyecto: 100% Funcional
+## 🎉 Estado del Proyecto: 90% Funcional
 
 ✅ **Sistema completamente operativo** con todas las funcionalidades implementadas y probadas  
 ✅ **Backend optimizado** con API RESTful completa  
