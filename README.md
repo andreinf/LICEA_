@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-orange.svg)](https://mysql.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-AI-purple.svg)](https://ollama.ai/)
-[![Estado](https://img.shields.io/badge/Estado-100%25%20Funcional-brightgreen.svg)](#)
+[![Estado](https://img.shields.io/badge/Estado-90%25%20Funcional-brightgreen.svg)](#)
 
 Una plataforma **completa y funcional** de gestión educativa (LMS) construida con tecnologías web modernas. LICEA proporciona todo lo necesario para gestionar instituciones educativas, cursos, estudiantes e instructores en una sola plataforma integral.
 
