@@ -556,6 +556,103 @@ router.post('/reset-password',
 
 /**
  * @swagger
+ * /api/auth/forgot-password-simple:
+ *   post:
+ *     summary: Request password reset (simplified - no email)
+ *     tags: [Authentication]
+ */
+router.post('/forgot-password-simple',
+  passwordResetLimiter,
+  [
+    body('email')
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Please provide a valid email address')
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new APIError('Validation failed', 400, 'VALIDATION_ERROR');
+    }
+
+    const { email } = req.body;
+
+    // Check if user exists
+    const users = await executeQuery(
+      'SELECT id, name, email FROM users WHERE email = ? AND is_active = true',
+      [email]
+    );
+
+    if (users.length === 0) {
+      throw new APIError('Correo electrónico no encontrado', 404, 'USER_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      message: 'Email verified. You can now reset your password.'
+    });
+  })
+);
+
+/**
+ * @swagger
+ * /api/auth/reset-password-simple:
+ *   post:
+ *     summary: Reset password (simplified - with email)
+ *     tags: [Authentication]
+ */
+router.post('/reset-password-simple',
+  authLimiter,
+  [
+    body('email')
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Please provide a valid email address'),
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters long')
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character')
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new APIError('Validation failed', 400, 'VALIDATION_ERROR');
+    }
+
+    const { email, password } = req.body;
+
+    // Find user by email
+    const users = await executeQuery(
+      'SELECT id FROM users WHERE email = ? AND is_active = true',
+      [email]
+    );
+
+    if (users.length === 0) {
+      throw new APIError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+
+    const user = users[0];
+
+    // Hash new password
+    const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Update password
+    await executeQuery(
+      'UPDATE users SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL WHERE id = ?',
+      [passwordHash, user.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully. You can now log in with your new password.'
+    });
+  })
+);
+
+/**
+ * @swagger
  * /api/auth/logout:
  *   post:
  *     summary: Logout user

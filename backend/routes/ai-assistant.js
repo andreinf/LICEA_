@@ -58,36 +58,44 @@ router.post('/chat', verifyToken, asyncHandler(async (req, res) => {
   let source = 'fallback';
   let model = 'predefined';
 
-  // Intentar usar Ollama si está disponible y habilitado
+  // Intentar usar Ollama si está disponible y habilitado (con timeout rápido)
   if (use_ollama) {
     const isOllamaAvailable = await checkOllamaAvailability();
     
     if (isOllamaAvailable) {
       try {
-        // Construir mensajes para chat
-        const messages = [
-          ...conversation_history.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          {
-            role: 'user',
-            content: message
-          }
-        ];
+        // Timeout rápido: si no responde en 8 segundos, usar fallback
+        const ollamaPromise = (async () => {
+          const messages = [
+            ...conversation_history.map(msg => ({
+              role: msg.role,
+              content: msg.content
+            })),
+            {
+              role: 'user',
+              content: message
+            }
+          ];
+          return await ollamaService.chat(messages, context);
+        })();
 
-        const ollamaResponse = await ollamaService.chat(messages, context);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout - respuesta muy lenta')), 8000)
+        );
+
+        const ollamaResponse = await Promise.race([ollamaPromise, timeoutPromise]);
         
         if (ollamaResponse.success) {
           aiResponse = ollamaResponse.message;
           source = 'ollama';
           model = ollamaService.model;
-          console.log(`[AI] Respuesta generada con Ollama (${model})`);
+          console.log(`[AI] ✅ Respuesta generada con Ollama (${model})`);
         } else {
           throw new Error(ollamaResponse.error);
         }
       } catch (error) {
-        console.warn(`[AI] Ollama falló, usando fallback: ${error.message}`);
+        console.warn(`[AI] ⚡ Ollama tarda demasiado o falló, usando fallback instantáneo: ${error.message}`);
+        ollamaAvailable = false; // Marcar como no disponible temporalmente
         // Continuar con fallback
       }
     }

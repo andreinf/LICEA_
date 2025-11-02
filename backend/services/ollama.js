@@ -15,7 +15,7 @@ class OllamaService {
   constructor() {
     this.baseURL = process.env.OLLAMA_URL || 'http://localhost:11434';
     this.model = process.env.OLLAMA_MODEL || 'llama2';
-    this.timeout = parseInt(process.env.OLLAMA_TIMEOUT || '60000'); // 60 segundos
+    this.timeout = parseInt(process.env.OLLAMA_TIMEOUT || '15000'); // 15 segundos - más rápido
   }
 
   /**
@@ -131,12 +131,12 @@ class OllamaService {
         prompt: conversationPrompt,
         stream: false,
         options: {
-          temperature: 0.7,        // Más consistente
+          temperature: 0.7,
           top_p: 0.9,
           top_k: 40,
-          num_predict: 800,        // Más tokens para respuestas completas
-          repeat_penalty: 1.1,     // Evita repeticiones
-          stop: ['Usuario:', 'User:'] // Para en el siguiente turno
+          num_predict: 300,        // Reducido para respuestas más rápidas
+          repeat_penalty: 1.1,
+          stop: ['Usuario:', 'User:']
         }
       };
 

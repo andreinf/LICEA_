@@ -51,9 +51,9 @@ const Register: React.FC = () => {
         privacyConsent: data.privacyConsent,
         termsAccepted: data.termsAccepted,
       });
-      setSuccess('Registration successful! Please check your email to verify your account.');
+      setSuccess('¡Registro exitoso! Por favor revisa tu correo para verificar tu cuenta.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(err instanceof Error ? err.message : 'Error en el registro');
     } finally {
       setIsLoading(false);
     }
@@ -65,13 +65,13 @@ const Register: React.FC = () => {
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <div className="text-6xl mb-4">✅</div>
-            <h2 className="text-3xl font-bold text-gray-900">Registration Successful!</h2>
+            <h2 className="text-3xl font-bold text-gray-900">¡Registro Exitoso!</h2>
             <p className="mt-4 text-gray-600">
-              We've sent a verification email to your address. Please check your inbox and click the verification link to activate your account.
+              Hemos enviado un correo de verificación a tu dirección. Por favor revisa tu bandeja de entrada y haz clic en el enlace de verificación para activar tu cuenta.
             </p>
             <div className="mt-6">
               <Link to="/login" className="btn-primary">
-                Go to Login
+                Ir a Iniciar Sesión
               </Link>
             </div>
           </div>
@@ -129,19 +129,19 @@ const Register: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="label">
-                Full Name
+                👤 Nombre Completo
               </label>
               <input
                 {...register('name', {
-                  required: 'Name is required',
+                  required: 'El nombre es requerido',
                   minLength: {
                     value: 2,
-                    message: 'Name must be at least 2 characters',
+                    message: 'El nombre debe tener al menos 2 caracteres',
                   },
                 })}
                 type="text"
                 className={`input ${errors.name ? 'input-error' : ''}`}
-                placeholder="Enter your full name"
+                placeholder="Ingresa tu nombre completo"
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-danger-600">{errors.name.message}</p>
@@ -150,19 +150,19 @@ const Register: React.FC = () => {
 
             <div>
               <label htmlFor="email" className="label">
-                Email address
+                📧 Correo Electrónico
               </label>
               <input
                 {...register('email', {
-                  required: 'Email is required',
+                  required: 'El correo electrónico es requerido',
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
+                    message: 'Correo electrónico inválido',
                   },
                 })}
                 type="email"
                 className={`input ${errors.email ? 'input-error' : ''}`}
-                placeholder="Enter your email"
+                placeholder="Ingresa tu correo electrónico"
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-danger-600">{errors.email.message}</p>
@@ -191,23 +191,23 @@ const Register: React.FC = () => {
 
             <div>
               <label htmlFor="password" className="label">
-                Password
+                🔒 Contraseña
               </label>
               <input
                 {...register('password', {
-                  required: 'Password is required',
+                  required: 'La contraseña es requerida',
                   minLength: {
                     value: 8,
-                    message: 'Password must be at least 8 characters',
+                    message: 'La contraseña debe tener al menos 8 caracteres',
                   },
                   pattern: {
                     value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-                    message: 'Password must contain uppercase, lowercase, number, and special character',
+                    message: 'Debe contener mayúsculas, minúsculas, números y caracteres especiales',
                   },
                 })}
                 type="password"
                 className={`input ${errors.password ? 'input-error' : ''}`}
-                placeholder="Create a strong password"
+                placeholder="Crea una contraseña segura"
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-danger-600">{errors.password.message}</p>
@@ -216,16 +216,16 @@ const Register: React.FC = () => {
 
             <div>
               <label htmlFor="confirmPassword" className="label">
-                Confirm Password
+                🔒 Confirmar Contraseña
               </label>
               <input
                 {...register('confirmPassword', {
-                  required: 'Please confirm your password',
-                  validate: value => value === password || 'Passwords do not match',
+                  required: 'Por favor confirma tu contraseña',
+                  validate: value => value === password || 'Las contraseñas no coinciden',
                 })}
                 type="password"
                 className={`input ${errors.confirmPassword ? 'input-error' : ''}`}
-                placeholder="Confirm your password"
+                placeholder="Confirma tu contraseña"
               />
               {errors.confirmPassword && (
                 <p className="mt-1 text-sm text-danger-600">{errors.confirmPassword.message}</p>
@@ -235,15 +235,15 @@ const Register: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-start">
                 <input
-                  {...register('privacyConsent', { required: 'You must accept the privacy policy' })}
+                  {...register('privacyConsent', { required: 'Debes aceptar la política de privacidad' })}
                   id="privacyConsent"
                   type="checkbox"
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-0.5"
                 />
                 <label htmlFor="privacyConsent" className="ml-2 text-sm text-gray-900">
-                  I agree to the{' '}
+                  Acepto la{' '}
                   <a href="#" className="text-primary-600 hover:text-primary-500">
-                    Privacy Policy
+                    Política de Privacidad
                   </a>
                 </label>
               </div>
@@ -253,15 +253,15 @@ const Register: React.FC = () => {
 
               <div className="flex items-start">
                 <input
-                  {...register('termsAccepted', { required: 'You must accept the terms of service' })}
+                  {...register('termsAccepted', { required: 'Debes aceptar los términos de servicio' })}
                   id="termsAccepted"
                   type="checkbox"
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-0.5"
                 />
                 <label htmlFor="termsAccepted" className="ml-2 text-sm text-gray-900">
-                  I agree to the{' '}
+                  Acepto los{' '}
                   <a href="#" className="text-primary-600 hover:text-primary-500">
-                    Terms of Service
+                    Términos de Servicio
                   </a>
                 </label>
               </div>
