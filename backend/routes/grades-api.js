@@ -46,7 +46,7 @@ router.get('/student/:studentId/course/:courseId',
         a.title as assignment_title,
         a.assignment_type,
         a.due_date,
-        c.title as course_title,
+        c.name as course_title,
         u.name as student_name
       FROM grades g
       JOIN assignments a ON g.assignment_id = a.id
@@ -274,7 +274,7 @@ router.get('/assignments',
     const assignments = await executeQuery(`
       SELECT 
         a.*,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         COUNT(g.id) as graded_count,
         COUNT(e.id) as total_students
@@ -283,7 +283,7 @@ router.get('/assignments',
       LEFT JOIN enrollments e ON c.id = e.course_id AND e.status = 'enrolled'
       LEFT JOIN grades g ON a.id = g.assignment_id
       WHERE ${whereCondition}
-      GROUP BY a.id, c.title, c.code
+      GROUP BY a.id, c.name, c.code
       ORDER BY a.due_date DESC
     `, params);
     
@@ -316,7 +316,7 @@ router.get('/my-grades',
         a.assignment_type,
         a.due_date,
         a.max_points as assignment_max_points,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         u.name as instructor_name
       FROM grades g

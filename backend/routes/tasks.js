@@ -3,7 +3,7 @@ const { verifyToken } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { auditLogger } = require('../middleware/auditLogger');
 const { body, validationResult, param } = require('express-validator');
-const db = require('../config/database');
+const { executeQuery } = require('../config/database');
 const router = express.Router();
 
 // Validaciones
@@ -62,7 +62,28 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
   query += ` GROUP BY t.id ORDER BY t.due_date ASC LIMIT ? OFFSET ?`;
   params.push(parseInt(limit), parseInt(offset));
 
-  const [tasks] = await db.execute(query, params);
+  const tasks = await executeQuery(query, params);
+  
+  // Si es estudiante, agregar su entrega a cada tarea
+  if (req.user.role === 'student' && tasks.length > 0) {
+    const taskIds = tasks.map(t => t.id);
+    if (taskIds.length > 0) {
+      // Construir placeholders para IN clause
+      const placeholders = taskIds.map(() => '?').join(',');
+      const submissions = await executeQuery(
+        `SELECT * FROM submissions WHERE task_id IN (${placeholders}) AND student_id = ?`,
+        [...taskIds, req.user.id]
+      );
+      const submissionMap = {};
+      submissions.forEach(sub => {
+        submissionMap[sub.task_id] = sub;
+      });
+      tasks.forEach(task => {
+        task.my_submission = submissionMap[task.id] || null;
+      });
+    }
+  }
+  
   res.json({ success: true, data: tasks });
 }));
 
@@ -96,14 +117,14 @@ router.get('/:id', verifyToken, validateTaskId, asyncHandler(async (req, res) =>
     params.push(req.user.id);
   }
 
-  const [tasks] = await db.execute(query, params);
+  const tasks = await executeQuery(query, params);
   if (tasks.length === 0) {
     return res.status(404).json({ success: false, message: 'Taller no encontrado' });
   }
 
   // Si es estudiante, obtener su envío
   if (req.user.role === 'student') {
-    const [submissions] = await db.execute(
+    const submissions = await executeQuery(
       'SELECT * FROM submissions WHERE task_id = ? AND student_id = ?',
       [taskId, req.user.id]
     );
@@ -112,7 +133,7 @@ router.get('/:id', verifyToken, validateTaskId, asyncHandler(async (req, res) =>
 
   // Si es instructor, obtener estadísticas de envíos
   if (req.user.role === 'instructor' || req.user.role === 'admin') {
-    const [stats] = await db.execute(`
+    const stats = await executeQuery(`
       SELECT 
         COUNT(*) as total_students,
         COUNT(s.id) as total_submissions,
@@ -151,7 +172,7 @@ router.post('/', verifyToken, validateTask, auditLogger, asyncHandler(async (req
 
   // Verificar permisos
   if (req.user.role !== 'admin') {
-    const [courses] = await db.execute(
+    const courses = await executeQuery(
       'SELECT id FROM courses WHERE id = ? AND instructor_id = ?',
       [course_id, req.user.id]
     );
@@ -160,28 +181,14 @@ router.post('/', verifyToken, validateTask, auditLogger, asyncHandler(async (req
     }
   }
 
-  const [result] = await db.execute(`
+  const result = await executeQuery(`
     INSERT INTO tasks (title, description, instructions, course_id, due_date, max_grade, 
                       submission_type, is_published, late_submission_allowed, late_penalty)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [title, description, instructions, course_id, due_date, max_grade, 
       submission_type, is_published, late_submission_allowed, late_penalty]);
 
-  // Crear eventos en el cronograma para todos los estudiantes del curso
-  if (is_published) {
-    const [students] = await db.execute(`
-      SELECT student_id FROM course_enrollments 
-      WHERE course_id = ? AND status = 'active'
-    `, [course_id]);
-
-    for (const student of students) {
-      await db.execute(`
-        INSERT INTO schedules (user_id, title, description, activity_type, start_time, 
-                              deadline, course_id, task_id, priority)
-        VALUES (?, ?, ?, 'task', NOW(), ?, ?, ?, 'high')
-      `, [student.student_id, `Taller: ${title}`, description, due_date, course_id, result.insertId]);
-    }
-  }
+  // No intentar crear eventos en schedules, esa tabla tiene otra estructura
 
   res.status(201).json({
     success: true,
@@ -212,7 +219,7 @@ router.put('/:id', verifyToken, validateTaskId, validateTask, auditLogger, async
 
   // Verificar permisos
   let permissionQuery = 'SELECT t.*, c.instructor_id FROM tasks t JOIN courses c ON t.course_id = c.id WHERE t.id = ?';
-  const [tasks] = await db.execute(permissionQuery, [taskId]);
+  const tasks = await executeQuery(permissionQuery, [taskId]);
   
   if (tasks.length === 0) {
     return res.status(404).json({ success: false, message: 'Taller no encontrado' });
@@ -222,7 +229,7 @@ router.put('/:id', verifyToken, validateTaskId, validateTask, auditLogger, async
     return res.status(403).json({ success: false, message: 'No tienes permisos para editar este taller' });
   }
 
-  await db.execute(`
+  await executeQuery(`
     UPDATE tasks SET 
       title = ?, description = ?, instructions = ?, due_date = ?, max_grade = ?,
       submission_type = ?, is_published = ?, late_submission_allowed = ?, late_penalty = ?,
@@ -230,23 +237,6 @@ router.put('/:id', verifyToken, validateTaskId, validateTask, auditLogger, async
     WHERE id = ?
   `, [title, description, instructions, due_date, max_grade, submission_type, 
       is_published, late_submission_allowed, late_penalty, taskId]);
-
-  // Actualizar cronograma si se publicó
-  if (is_published && !tasks[0].is_published) {
-    const [students] = await db.execute(`
-      SELECT student_id FROM course_enrollments 
-      WHERE course_id = ? AND status = 'active'
-    `, [tasks[0].course_id]);
-
-    for (const student of students) {
-      await db.execute(`
-        INSERT INTO schedules (user_id, title, description, activity_type, start_time, 
-                              deadline, course_id, task_id, priority)
-        VALUES (?, ?, ?, 'task', NOW(), ?, ?, ?, 'high')
-        ON DUPLICATE KEY UPDATE deadline = VALUES(deadline), title = VALUES(title)
-      `, [student.student_id, `Taller: ${title}`, description, due_date, tasks[0].course_id, taskId]);
-    }
-  }
 
   res.json({ success: true, message: 'Taller actualizado exitosamente' });
 }));
@@ -261,7 +251,7 @@ router.delete('/:id', verifyToken, validateTaskId, auditLogger, asyncHandler(asy
   const taskId = req.params.id;
 
   // Verificar permisos
-  const [tasks] = await db.execute(`
+  const tasks = await executeQuery(`
     SELECT t.*, c.instructor_id FROM tasks t 
     JOIN courses c ON t.course_id = c.id 
     WHERE t.id = ?
@@ -276,10 +266,7 @@ router.delete('/:id', verifyToken, validateTaskId, auditLogger, asyncHandler(asy
   }
 
   // Eliminar taller (las submissions se eliminan por CASCADE)
-  await db.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
-  
-  // Eliminar del cronograma
-  await db.execute('DELETE FROM schedules WHERE task_id = ?', [taskId]);
+  await executeQuery('DELETE FROM tasks WHERE id = ?', [taskId]);
 
   res.json({ success: true, message: 'Taller eliminado exitosamente' });
 }));
@@ -294,7 +281,7 @@ router.patch('/:id/toggle-publish', verifyToken, validateTaskId, auditLogger, as
   const taskId = req.params.id;
 
   // Verificar permisos
-  const [tasks] = await db.execute(`
+  const tasks = await executeQuery(`
     SELECT t.*, c.instructor_id FROM tasks t 
     JOIN courses c ON t.course_id = c.id 
     WHERE t.id = ?
@@ -310,31 +297,10 @@ router.patch('/:id/toggle-publish', verifyToken, validateTaskId, auditLogger, as
 
   const newPublishStatus = !tasks[0].is_published;
   
-  await db.execute(
+  await executeQuery(
     'UPDATE tasks SET is_published = ? WHERE id = ?',
     [newPublishStatus, taskId]
   );
-
-  // Actualizar cronograma
-  if (newPublishStatus) {
-    // Añadir al cronograma de estudiantes
-    const [students] = await db.execute(`
-      SELECT student_id FROM course_enrollments 
-      WHERE course_id = ? AND status = 'active'
-    `, [tasks[0].course_id]);
-
-    for (const student of students) {
-      await db.execute(`
-        INSERT IGNORE INTO schedules (user_id, title, description, activity_type, start_time, 
-                                     deadline, course_id, task_id, priority)
-        VALUES (?, ?, ?, 'task', NOW(), ?, ?, ?, 'high')
-      `, [student.student_id, `Taller: ${tasks[0].title}`, tasks[0].description, 
-          tasks[0].due_date, tasks[0].course_id, taskId]);
-    }
-  } else {
-    // Remover del cronograma
-    await db.execute('DELETE FROM schedules WHERE task_id = ?', [taskId]);
-  }
 
   res.json({ 
     success: true, 

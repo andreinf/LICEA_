@@ -6,7 +6,8 @@ const { verifyToken } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { auditLogger } = require('../middleware/auditLogger');
 const { body, validationResult, param } = require('express-validator');
-const db = require('../config/database');
+const { executeQuery } = require('../config/database');
+const { createNotification } = require('./notifications');
 const router = express.Router();
 
 // Configuración de multer para subida de archivos
@@ -114,7 +115,7 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
   query += ` ORDER BY s.submitted_at DESC, s.created_at DESC LIMIT ? OFFSET ?`;
   params.push(parseInt(limit), parseInt(offset));
 
-  const [submissions] = await db.execute(query, params);
+  const submissions = await executeQuery(query, params);
   res.json({ success: true, data: submissions });
 }));
 
@@ -133,7 +134,7 @@ router.get('/task/:task_id', verifyToken, validateTaskId, asyncHandler(async (re
     JOIN courses c ON t.course_id = c.id 
     WHERE t.id = ?
   `;
-  const [tasks] = await db.execute(permissionQuery, [taskId]);
+  const tasks = await executeQuery(permissionQuery, [taskId]);
   
   if (tasks.length === 0) {
     return res.status(404).json({ success: false, message: 'Taller no encontrado' });
@@ -158,7 +159,7 @@ router.get('/task/:task_id', verifyToken, validateTaskId, asyncHandler(async (re
 
   query += ` ORDER BY s.submitted_at DESC, u.name ASC`;
 
-  const [submissions] = await db.execute(query, params);
+  const submissions = await executeQuery(query, params);
   res.json({ success: true, data: submissions });
 }));
 
@@ -182,7 +183,7 @@ router.get('/:id', verifyToken, validateSubmissionId, asyncHandler(async (req, r
     WHERE s.id = ?
   `;
   
-  const [submissions] = await db.execute(query, [submissionId]);
+  const submissions = await executeQuery(query, [submissionId]);
   
   if (submissions.length === 0) {
     return res.status(404).json({ success: false, message: 'Evidencia no encontrada' });
@@ -217,7 +218,7 @@ router.post('/', verifyToken, upload.single('file'), validateSubmission, auditLo
   }
 
   // Verificar que el estudiante esté inscrito en el curso del taller
-  const [enrollmentCheck] = await db.execute(`
+  const enrollmentCheck = await executeQuery(`
     SELECT 1 FROM tasks t
     JOIN course_enrollments ce ON t.course_id = ce.course_id
     WHERE t.id = ? AND ce.student_id = ? AND ce.status = 'active'
@@ -228,7 +229,7 @@ router.post('/', verifyToken, upload.single('file'), validateSubmission, auditLo
   }
 
   // Verificar que el taller esté publicado
-  const [taskCheck] = await db.execute(`
+  const taskCheck = await executeQuery(`
     SELECT id, due_date, late_submission_allowed FROM tasks 
     WHERE id = ? AND is_published = TRUE
   `, [task_id]);
@@ -247,7 +248,7 @@ router.post('/', verifyToken, upload.single('file'), validateSubmission, auditLo
   }
 
   // Verificar si ya existe una evidencia para este taller
-  const [existingSubmission] = await db.execute(
+  const existingSubmission = await executeQuery(
     'SELECT id FROM submissions WHERE task_id = ? AND student_id = ?',
     [task_id, req.user.id]
   );
@@ -266,10 +267,10 @@ router.post('/', verifyToken, upload.single('file'), validateSubmission, auditLo
     file_path = path.relative(path.join(__dirname, '..'), req.file.path);
   }
   
-  const [result] = await db.execute(`
+  const result = await executeQuery(`
     INSERT INTO submissions (task_id, student_id, submission_text, file_path, file_url, status, submitted_at)
     VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP)
-  `, [task_id, req.user.id, submission_text, file_path, file_url]);
+  `, [task_id, req.user.id, submission_text || null, file_path, file_url || null]);
 
   res.status(201).json({
     success: true,
@@ -294,7 +295,7 @@ router.put('/:id', verifyToken, upload.single('file'), validateSubmissionId, val
   }
 
   // Verificar que la evidencia existe y pertenece al estudiante
-  const [submissions] = await db.execute(
+  const submissions = await executeQuery(
     'SELECT * FROM submissions WHERE id = ? AND student_id = ?',
     [submissionId, req.user.id]
   );
@@ -323,7 +324,7 @@ router.put('/:id', verifyToken, upload.single('file'), validateSubmissionId, val
     file_path = path.relative(path.join(__dirname, '..'), req.file.path);
   }
   
-  await db.execute(`
+  await executeQuery(`
     UPDATE submissions SET 
       submission_text = ?, file_path = ?, file_url = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
@@ -345,7 +346,7 @@ router.patch('/:id/submit', verifyToken, validateSubmissionId, auditLogger, asyn
     return res.status(403).json({ success: false, message: 'Solo los estudiantes pueden enviar evidencias' });
   }
 
-  const [submissions] = await db.execute(`
+  const submissions = await executeQuery(`
     SELECT s.*, t.due_date, t.late_submission_allowed
     FROM submissions s
     JOIN tasks t ON s.task_id = t.id
@@ -369,7 +370,7 @@ router.patch('/:id/submit', verifyToken, validateSubmissionId, auditLogger, asyn
     return res.status(400).json({ success: false, message: 'La fecha de entrega ha pasado y no se permiten envíos tardíos' });
   }
   
-  await db.execute(
+  await executeQuery(
     'UPDATE submissions SET status = "submitted", submitted_at = CURRENT_TIMESTAMP WHERE id = ?',
     [submissionId]
   );
@@ -377,8 +378,8 @@ router.patch('/:id/submit', verifyToken, validateSubmissionId, auditLogger, asyn
   res.json({ success: true, message: 'Evidencia enviada exitosamente' });
 }));
 
-// Calificar evidencia (solo instructores)
-router.patch('/:id/grade', verifyToken, validateSubmissionId, auditLogger, asyncHandler(async (req, res) => {
+// Calificar evidencia (solo instructores) - PATCH y PUT
+const gradeSubmission = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ success: false, errors: errors.array() });
@@ -397,7 +398,7 @@ router.patch('/:id/grade', verifyToken, validateSubmissionId, auditLogger, async
   }
 
   // Verificar permisos
-  const [submissions] = await db.execute(`
+  const submissions = await executeQuery(`
     SELECT s.*, t.max_grade, c.instructor_id
     FROM submissions s
     JOIN tasks t ON s.task_id = t.id
@@ -427,14 +428,43 @@ router.patch('/:id/grade', verifyToken, validateSubmissionId, auditLogger, async
     });
   }
   
-  await db.execute(`
+  await executeQuery(`
     UPDATE submissions SET 
       grade = ?, feedback = ?, status = 'graded', graded_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `, [grade, feedback, submissionId]);
 
+  // Crear notificación para el estudiante
+  try {
+    const taskInfo = await executeQuery(`
+      SELECT t.title, c.name as course_name, s.student_id
+      FROM tasks t
+      JOIN courses c ON t.course_id = c.id
+      JOIN submissions s ON s.task_id = t.id
+      WHERE s.id = ?
+    `, [submissionId]);
+
+    if (taskInfo.length > 0) {
+      const { title, course_name, student_id } = taskInfo[0];
+      await createNotification(
+        student_id,
+        'task_graded',
+        '✅ Tarea Calificada',
+        `Tu tarea "${title}" de ${course_name} ha sido calificada. Calificación: ${grade}/${submission.max_grade}`,
+        '/dashboard/grades',
+        submissionId
+      );
+    }
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    // No fallar la calificación si falla la notificación
+  }
+
   res.json({ success: true, message: 'Evidencia calificada exitosamente' });
-}));
+});
+
+router.patch('/:id/grade', verifyToken, validateSubmissionId, auditLogger, gradeSubmission);
+router.put('/:id/grade', verifyToken, validateSubmissionId, auditLogger, gradeSubmission);
 
 // Descargar archivo de evidencia
 router.get('/:id/download', verifyToken, validateSubmissionId, asyncHandler(async (req, res) => {
@@ -445,7 +475,7 @@ router.get('/:id/download', verifyToken, validateSubmissionId, asyncHandler(asyn
 
   const submissionId = req.params.id;
   
-  const [submissions] = await db.execute(`
+  const submissions = await executeQuery(`
     SELECT s.*, c.instructor_id
     FROM submissions s
     JOIN tasks t ON s.task_id = t.id
@@ -491,7 +521,7 @@ router.delete('/:id', verifyToken, validateSubmissionId, auditLogger, asyncHandl
 
   const submissionId = req.params.id;
   
-  const [submissions] = await db.execute(
+  const submissions = await executeQuery(
     'SELECT * FROM submissions WHERE id = ? AND student_id = ?',
     [submissionId, req.user.id]
   );
@@ -516,7 +546,7 @@ router.delete('/:id', verifyToken, validateSubmissionId, auditLogger, asyncHandl
     }
   }
   
-  await db.execute('DELETE FROM submissions WHERE id = ?', [submissionId]);
+  await executeQuery('DELETE FROM submissions WHERE id = ?', [submissionId]);
   
   res.json({ success: true, message: 'Evidencia eliminada exitosamente' });
 }));

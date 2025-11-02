@@ -64,6 +64,73 @@ router.get('/course/:courseId',
 
 /**
  * @swagger
+ * /api/schedules/my:
+ *   get:
+ *     summary: Get user's personal schedule (alias)
+ *     tags: [Schedules]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/my', verifyToken, asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+  
+  let schedules = [];
+  
+  if (userRole === 'student') {
+    schedules = await executeQuery(`
+      SELECT 
+        s.*,
+        c.name as course_name,
+        c.code as course_code,
+        u.name as instructor_name
+      FROM schedules s
+      JOIN courses c ON s.course_id = c.id
+      JOIN users u ON c.instructor_id = u.id
+      JOIN course_enrollments e ON c.id = e.course_id
+      WHERE e.student_id = ? AND e.status = 'active' AND c.is_active = TRUE
+      ORDER BY 
+        FIELD(s.day_of_week, 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'),
+        s.start_time
+    `, [userId]);
+  } else if (userRole === 'instructor') {
+    schedules = await executeQuery(`
+      SELECT 
+        s.*,
+        c.name as course_name,
+        c.code as course_code
+      FROM schedules s
+      JOIN courses c ON s.course_id = c.id
+      WHERE c.instructor_id = ? AND c.is_active = TRUE
+      ORDER BY 
+        FIELD(s.day_of_week, 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'),
+        s.start_time
+    `, [userId]);
+  } else if (userRole === 'admin') {
+    schedules = await executeQuery(`
+      SELECT 
+        s.*,
+        c.name as course_name,
+        c.code as course_code,
+        u.name as instructor_name
+      FROM schedules s
+      JOIN courses c ON s.course_id = c.id
+      JOIN users u ON c.instructor_id = u.id
+      WHERE c.is_active = TRUE
+      ORDER BY 
+        FIELD(s.day_of_week, 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'),
+        s.start_time
+    `);
+  }
+  
+  res.json({
+    success: true,
+    data: schedules
+  });
+}));
+
+/**
+ * @swagger
  * /api/schedules/my-schedule:
  *   get:
  *     summary: Get user's personal schedule
@@ -83,7 +150,7 @@ router.get('/my-schedule', verifyToken, asyncHandler(async (req, res) => {
     schedules = await executeQuery(`
       SELECT 
         s.*,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         u.name as instructor_name
       FROM schedules s
@@ -100,7 +167,7 @@ router.get('/my-schedule', verifyToken, asyncHandler(async (req, res) => {
     schedules = await executeQuery(`
       SELECT 
         s.*,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         c.current_students
       FROM schedules s
@@ -115,7 +182,7 @@ router.get('/my-schedule', verifyToken, asyncHandler(async (req, res) => {
     schedules = await executeQuery(`
       SELECT 
         s.*,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         u.name as instructor_name
       FROM schedules s
@@ -200,7 +267,7 @@ router.post('/',
     
     // Check for conflicts
     const conflicts = await executeQuery(`
-      SELECT s.*, c.title as course_title
+      SELECT s.*, c.name as course_title
       FROM schedules s
       JOIN courses c ON s.course_id = c.id
       WHERE s.course_id = ? AND s.day_of_week = ? AND c.is_active = TRUE
@@ -378,7 +445,7 @@ router.get('/upcoming', verifyToken, asyncHandler(async (req, res) => {
     upcomingClasses = await executeQuery(`
       SELECT 
         s.*,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         u.name as instructor_name,
         CASE 
@@ -399,7 +466,7 @@ router.get('/upcoming', verifyToken, asyncHandler(async (req, res) => {
     upcomingClasses = await executeQuery(`
       SELECT 
         s.*,
-        c.title as course_title,
+        c.name as course_title,
         c.code as course_code,
         c.current_students,
         CASE 

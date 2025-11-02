@@ -28,6 +28,7 @@ export interface RegisterData {
   email: string;
   password: string;
   role: 'student' | 'instructor' | 'admin';
+  institution_id: number;
   privacyConsent: boolean;
   termsAccepted: boolean;
 }

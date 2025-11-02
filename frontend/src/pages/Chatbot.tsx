@@ -68,7 +68,7 @@ const Chatbot: React.FC = () => {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('licea_access_token');
       const response = await fetch('/api/chat/message', {
         method: 'POST',
         headers: {

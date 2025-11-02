@@ -1,11 +1,42 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { body, validationResult, query, param } = require('express-validator');
 const { executeQuery, getPaginatedResults } = require('../config/database');
 const { verifyToken, requireAdmin, requireOwnerOrRole } = require('../middleware/auth');
 const { APIError, asyncHandler } = require('../middleware/errorHandler');
 const { auditLogger } = require('../middleware/auditLogger');
-const db = require('../config/database');
+
+// Configuración de multer para subir imágenes
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/profiles');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'profile-' + req.user.id + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, gif)'));
+  }
+});
 
 const router = express.Router();
 
@@ -51,7 +82,7 @@ router.get('/',
   requireAdmin,
   [
     query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('limit').optional().isInt({ min: 1, max: 10000 }),
     query('role').optional().isIn(['admin', 'instructor', 'student']),
     query('search').optional().isString().trim()
   ],
@@ -67,26 +98,28 @@ router.get('/',
     let params = [];
 
     if (role) {
-      whereConditions.push('role = ?');
+      whereConditions.push('u.role = ?');
       params.push(role);
     }
 
     if (search) {
-      whereConditions.push('(name LIKE ? OR email LIKE ?)');
+      whereConditions.push('(u.name LIKE ? OR u.email LIKE ?)');
       params.push(`%${search}%`, `%${search}%`);
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const baseQuery = `
-      SELECT id, name, email, role, email_verified, is_active, 
-             registration_date, last_login
-      FROM users
+      SELECT u.id, u.name, u.email, u.role, u.email_verified, u.is_active, 
+             u.registration_date, u.last_login, u.institution_id,
+             i.name as institution_name, i.code as institution_code
+      FROM users u
+      LEFT JOIN institutions i ON u.institution_id = i.id
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY u.created_at DESC
     `;
 
-    const countQuery = `SELECT COUNT(*) as count FROM users ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as count FROM users u ${whereClause}`;
 
     const result = await getPaginatedResults(baseQuery, countQuery, params, page, limit);
 
@@ -146,7 +179,8 @@ router.put('/:id',
   [
     body('name').optional().trim().isLength({ min: 2, max: 255 }),
     body('email').optional().isEmail().normalizeEmail(),
-    body('role').optional().isIn(['admin', 'instructor', 'student'])
+    body('role').optional().isIn(['admin', 'instructor', 'student']),
+    body('is_active').optional().isBoolean()
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -163,9 +197,12 @@ router.put('/:id',
       throw new APIError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    // Only admins can change roles
+    // Only admins can change roles and is_active
     if (updates.role && req.user.role !== 'admin') {
       delete updates.role;
+    }
+    if (updates.is_active !== undefined && req.user.role !== 'admin') {
+      delete updates.is_active;
     }
 
     // Only admins can update other users' basic info
@@ -241,7 +278,7 @@ router.post('/',
     const { name, email, password, role, is_active = true } = req.body;
 
     // Check if email already exists
-    const [existingUsers] = await db.execute(
+    const existingUsers = await executeQuery(
       'SELECT id FROM users WHERE email = ?',
       [email]
     );
@@ -258,14 +295,14 @@ router.post('/',
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Create user
-    const [result] = await db.execute(`
+    const result = await executeQuery(`
       INSERT INTO users (name, email, password_hash, role, is_active, email_verified, 
                         privacy_consent, terms_accepted)
       VALUES (?, ?, ?, ?, ?, TRUE, TRUE, TRUE)
     `, [name, email, hashedPassword, role, is_active]);
 
     // Get created user (without password)
-    const [newUsers] = await db.execute(`
+    const newUsers = await executeQuery(`
       SELECT id, name, email, role, email_verified, is_active, 
              registration_date, last_login
       FROM users WHERE id = ?
@@ -296,7 +333,7 @@ router.delete('/:id',
     const userId = req.params.id;
 
     // Check if user exists
-    const [users] = await db.execute(
+    const users = await executeQuery(
       'SELECT id, role, name, email FROM users WHERE id = ?',
       [userId]
     );
@@ -319,12 +356,12 @@ router.delete('/:id',
     }
 
     // Check if user has active enrollments or courses
-    const [enrollmentCheck] = await db.execute(
+    const enrollmentCheck = await executeQuery(
       'SELECT COUNT(*) as count FROM course_enrollments WHERE student_id = ? AND status = "active"',
       [userId]
     );
 
-    const [instructorCheck] = await db.execute(
+    const instructorCheck = await executeQuery(
       'SELECT COUNT(*) as count FROM courses WHERE instructor_id = ? AND is_active = TRUE',
       [userId]
     );
@@ -349,7 +386,7 @@ router.delete('/:id',
   })
 );
 
-// Cambiar contraseña
+// Cambiar contraseÃ±a
 router.patch('/:id/password',
   verifyToken,
   requireOwnerOrRole('id', 'admin'),
@@ -379,7 +416,7 @@ router.patch('/:id/password',
     const isAdmin = req.user.role === 'admin';
 
     // Get user
-    const [users] = await db.execute(
+    const users = await executeQuery(
       'SELECT id, password_hash FROM users WHERE id = ?',
       [userId]
     );
@@ -438,7 +475,7 @@ router.patch('/:id/toggle-active',
     const userId = req.params.id;
 
     // Check if user exists
-    const [users] = await db.execute(
+    const users = await executeQuery(
       'SELECT id, is_active, name FROM users WHERE id = ?',
       [userId]
     );
@@ -475,12 +512,12 @@ router.patch('/:id/toggle-active',
   })
 );
 
-// Obtener estadísticas de usuarios (solo admins)
+// Obtener estadÃ­sticas de usuarios (solo admins)
 router.get('/stats/overview',
   verifyToken,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const [stats] = await db.execute(`
+    const stats = await executeQuery(`
       SELECT 
         COUNT(*) as total_users,
         COUNT(CASE WHEN is_active = TRUE THEN 1 END) as active_users,
@@ -493,7 +530,7 @@ router.get('/stats/overview',
     `);
 
     // Registrations by month (last 12 months)
-    const [registrationTrend] = await db.execute(`
+    const registrationTrend = await executeQuery(`
       SELECT 
         DATE_FORMAT(registration_date, '%Y-%m') as month,
         COUNT(*) as registrations
@@ -504,7 +541,7 @@ router.get('/stats/overview',
     `);
 
     // Most active users (by last login)
-    const [activeUsers] = await db.execute(`
+    const activeUsers = await executeQuery(`
       SELECT 
         id,
         name,
@@ -573,7 +610,7 @@ router.get('/search/advanced',
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     
-    const [users] = await db.execute(`
+    const users = await executeQuery(`
       SELECT 
         id,
         name,
@@ -628,7 +665,7 @@ router.get('/:id/courses',
     }
 
     // Verify user exists and is instructor or admin
-    const [users] = await db.execute(
+    const users = await executeQuery(
       'SELECT id, role FROM users WHERE id = ?',
       [userId]
     );
@@ -649,7 +686,7 @@ router.get('/:id/courses',
     }
 
     // Get instructor's courses
-    const [courses] = await db.execute(`
+    const courses = await executeQuery(`
       SELECT 
         c.id,
         c.name,
@@ -675,25 +712,157 @@ router.get('/:id/courses',
   })
 );
 
-module.exports = router;
-      [...values, id]
-    ;
+/**
+ * @swagger
+ * /api/users/{id}/role:
+ *   put:
+ *     summary: Update user role (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:id/role',
+  verifyToken,
+  requireAdmin,
+  [
+    param('id').isInt().withMessage('Invalid user ID'),
+    body('role').isIn(['student', 'instructor', 'admin']).withMessage('Invalid role')
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new APIError('Validation failed', 400, 'VALIDATION_ERROR');
+    }
 
-    // Get updated user
-    const updatedUser = await executeQuery(
-      `SELECT id, name, email, role, email_verified, is_active, 
-              registration_date, last_login
-       FROM users WHERE id = ?`,
-      [id]
-    );
+    const userId = req.params.id;
+    const { role } = req.body;
+
+    // Verificar que el usuario existe
+    const users = await executeQuery('SELECT id FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+      throw new APIError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    // No permitir que el admin cambie su propio rol
+    if (parseInt(userId) === req.user.id) {
+      throw new APIError('Cannot change your own role', 403, 'CANNOT_CHANGE_OWN_ROLE');
+    }
+
+    // Actualizar rol
+    await executeQuery('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
 
     res.json({
       success: true,
-      message: 'User updated successfully',
-      data: updatedUser[0]
+      message: `User role updated to ${role}`,
+      data: { userId, role }
     });
-  
-;
+  })
+);
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   put:
+ *     summary: Update user profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/profile',
+  verifyToken,
+  [
+    body('name').optional().trim().isLength({ min: 2, max: 255 }),
+    body('phone').optional().trim().isLength({ max: 20 }),
+    body('bio').optional().trim().isLength({ max: 1000 })
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new APIError('Validation failed', 400, 'VALIDATION_ERROR');
+    }
+
+    const userId = req.user.id;
+    const { name, phone, bio } = req.body;
+
+    const updateFields = [];
+    const updateValues = [];
+
+    if (name) {
+      updateFields.push('name = ?');
+      updateValues.push(name);
+    }
+
+    if (phone !== undefined) {
+      updateFields.push('phone = ?');
+      updateValues.push(phone);
+    }
+
+    if (bio !== undefined) {
+      updateFields.push('bio = ?');
+      updateValues.push(bio);
+    }
+
+    if (updateFields.length === 0) {
+      throw new APIError('No fields to update', 400, 'NO_UPDATES');
+    }
+
+    updateValues.push(userId);
+
+    await executeQuery(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, updateValues);
+
+    // Obtener datos actualizados
+    const [updatedUser] = await executeQuery(`
+      SELECT id, name, email, role, phone, bio, institution_id
+      FROM users WHERE id = ?
+    `, [userId]);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser
+    });
+  })
+);
+
+/**
+ * @swagger
+ * /api/users/profile-picture:
+ *   put:
+ *     summary: Upload profile picture
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/profile-picture',
+  verifyToken,
+  upload.single('profile_image'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw new APIError('No se proporcionó ninguna imagen', 400, 'NO_FILE');
+    }
+
+    const userId = req.user.id;
+    const imageUrl = `/uploads/profiles/${req.file.filename}`;
+
+    // Eliminar imagen anterior si existe
+    const [oldUser] = await executeQuery('SELECT profile_image FROM users WHERE id = ?', [userId]);
+    if (oldUser && oldUser.profile_image) {
+      const oldImagePath = path.join(__dirname, '..', oldUser.profile_image);
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+    }
+
+    // Actualizar con nueva imagen
+    await executeQuery('UPDATE users SET profile_image = ? WHERE id = ?', [imageUrl, userId]);
+
+    res.json({
+      success: true,
+      message: 'Foto de perfil actualizada exitosamente',
+      data: { profile_image: imageUrl }
+    });
+  })
+);
 
 /**
  * @swagger
@@ -808,3 +977,4 @@ router.get('/stats',
 );
 
 module.exports = router;
+

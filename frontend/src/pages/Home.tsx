@@ -1,9 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Home: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Detectar scroll para mostrar/ocultar botón
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Función para volver arriba
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   const features = [
     {
@@ -60,8 +79,8 @@ const Home: React.FC = () => {
             {/* Logo modernizado */}
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-2xl">
-                  <span className="text-2xl">🎓</span>
+                <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden">
+                  <img src="/images/logo-gato.png" alt="LICEA Logo" className="w-10 h-10 object-contain" />
                 </div>
                 <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent-400 rounded-full flex items-center justify-center text-xs text-white font-bold animate-bounce">
                   L
@@ -148,33 +167,8 @@ const Home: React.FC = () => {
           </div>
 
           {/* Botones de acción futuristas */}
-          <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            {!isAuthenticated && (
-              <>
-                <Link 
-                  to="/register" 
-                  className="group relative bg-gradient-to-r from-primary-500 via-accent-500 to-primary-600 text-white px-12 py-4 rounded-full text-lg font-bold transition-all duration-500 shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1 overflow-hidden"
-                >
-                  <span className="relative z-10 flex items-center space-x-3">
-                    <span>¡Comienza tu Aventura!</span>
-                    <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-full group-hover:translate-x-0 transition-transform duration-1000"></div>
-                </Link>
-                <Link 
-                  to="/login" 
-                  className="group bg-white/20 backdrop-blur-lg border-2 border-white/30 text-gray-800 hover:bg-white/30 hover:border-white/50 px-10 py-4 rounded-full text-lg font-bold transition-all duration-300 flex items-center space-x-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                  </svg>
-                  <span>Iniciar Sesión</span>
-                </Link>
-              </>
-            )}
-            {isAuthenticated && (
+          {isAuthenticated && (
+            <div className="flex justify-center">
               <Link 
                 to="/dashboard" 
                 className="group relative bg-gradient-to-r from-primary-500 via-accent-500 to-primary-600 text-white px-12 py-4 rounded-full text-lg font-bold transition-all duration-500 shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1 overflow-hidden"
@@ -187,8 +181,8 @@ const Home: React.FC = () => {
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-full group-hover:translate-x-0 transition-transform duration-1000"></div>
               </Link>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -234,16 +228,9 @@ const Home: React.FC = () => {
                     <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-primary-700 transition-colors duration-300">
                       {feature.title}
                     </h3>
-                    <p className="text-gray-600 leading-relaxed font-medium group-hover:text-gray-700 transition-colors duration-300">
+                  <p className="text-gray-600 leading-relaxed font-medium group-hover:text-gray-700 transition-colors duration-300">
                       {feature.description}
                     </p>
-                  </div>
-                  
-                  {/* Botón de acción oculto */}
-                  <div className="mt-6 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-                    <button className="w-full bg-gradient-to-r from-primary-500 to-accent-500 text-white py-3 rounded-xl font-bold hover:from-primary-400 hover:to-accent-400 transition-all duration-300 shadow-lg">
-                      Explorar más
-                    </button>
                   </div>
                 </div>
                 
@@ -262,8 +249,8 @@ const Home: React.FC = () => {
           {/* Logo y marca */}
           <div className="mb-12">
             <div className="inline-flex items-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-accent-400 rounded-2xl flex items-center justify-center text-3xl shadow-2xl">
-                🎓
+              <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-accent-400 rounded-2xl flex items-center justify-center text-3xl shadow-2xl overflow-hidden">
+                <img src="/images/logo-gato.png" alt="LICEA Logo" className="w-12 h-12 object-contain" />
               </div>
               <div className="text-4xl font-black bg-gradient-to-r from-primary-300 to-accent-300 bg-clip-text text-transparent">
                 LICEA
@@ -294,33 +281,6 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          {/* Botón CTA final */}
-          {!isAuthenticated && (
-            <div className="mb-12">
-              <div className="bg-gradient-to-r from-primary-500/20 to-accent-500/20 backdrop-blur-sm border border-white/10 rounded-3xl p-8 max-w-2xl mx-auto">
-                <h3 className="text-2xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-primary-300 to-accent-300">
-                  ¡Únete a la Revolución Educativa!
-                </h3>
-                <p className="text-gray-300 mb-6">
-                  Miles de estudiantes e instructores ya están transformando su experiencia educativa con LICEA
-                </p>
-                <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                  <Link 
-                    to="/register" 
-                    className="bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-400 hover:to-accent-400 text-white px-8 py-3 rounded-full font-bold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
-                  >
-                    Comenzar Gratis
-                  </Link>
-                  <Link 
-                    to="/login" 
-                    className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 px-8 py-3 rounded-full font-bold transition-all duration-300"
-                  >
-                    Iniciar Sesión
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Copyright */}
           <div className="border-t border-gray-700 pt-8">
@@ -334,6 +294,24 @@ const Home: React.FC = () => {
         <div className="absolute top-10 left-10 w-32 h-32 bg-primary-500/10 rounded-full blur-2xl"></div>
         <div className="absolute bottom-10 right-10 w-40 h-40 bg-accent-500/10 rounded-full blur-2xl"></div>
       </footer>
+
+      {/* Botón flotante para volver arriba */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 z-50 w-14 h-14 bg-gradient-to-br from-primary-500 to-accent-500 hover:from-primary-400 hover:to-accent-400 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center group animate-bounce-slow"
+          aria-label="Volver arriba"
+        >
+          <svg 
+            className="w-6 h-6 transform group-hover:-translate-y-1 transition-transform duration-300" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 };

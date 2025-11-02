@@ -72,16 +72,23 @@ CREATE TABLE courses (
     description TEXT,
     instructor_id INT NOT NULL,
     code VARCHAR(50) UNIQUE NOT NULL,
+    category VARCHAR(100),
+    level ENUM('beginner', 'intermediate', 'advanced') DEFAULT 'beginner',
+    credits INT DEFAULT 3,
+    max_students INT DEFAULT 50,
+    current_students INT DEFAULT 0,
     start_date DATE,
     end_date DATE,
+    syllabus TEXT,
     is_active BOOLEAN DEFAULT TRUE,
-    max_students INT DEFAULT 50,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (instructor_id) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_instructor (instructor_id),
     INDEX idx_code (code),
-    INDEX idx_active (is_active)
+    INDEX idx_active (is_active),
+    INDEX idx_level (level),
+    INDEX idx_category (category)
 );
 
 -- Course enrollments table
@@ -215,21 +222,55 @@ CREATE TABLE alerts (
     INDEX idx_unresolved (is_resolved)
 );
 
--- Schedules table for smart scheduling
+-- Course groups table
+CREATE TABLE course_groups (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    course_id INT NOT NULL,
+    description TEXT,
+    max_members INT DEFAULT 30,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_group_name (course_id, name),
+    INDEX idx_course (course_id)
+);
+
+-- Group members table
+CREATE TABLE group_members (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    group_id INT NOT NULL,
+    student_id INT NOT NULL,
+    role ENUM('member', 'leader') DEFAULT 'member',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES course_groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_group_member (group_id, student_id),
+    INDEX idx_group (group_id),
+    INDEX idx_student (student_id)
+);
+
+-- Schedules table for class schedules and smart scheduling
 CREATE TABLE schedules (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
+    user_id INT NULL,
+    course_id INT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    activity_type ENUM('task', 'exam', 'class', 'meeting', 'study', 'other') NOT NULL,
-    start_time DATETIME NOT NULL,
-    end_time DATETIME,
-    deadline DATETIME,
+    activity_type ENUM('task', 'exam', 'class', 'meeting', 'study', 'other') DEFAULT 'class',
+    day_of_week ENUM('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday') NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    room VARCHAR(100),
+    location VARCHAR(255),
+    specific_date DATE NULL,
+    is_recurring BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
     priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
     status ENUM('scheduled', 'in_progress', 'completed', 'cancelled') DEFAULT 'scheduled',
+    deadline DATETIME,
     reminder_sent BOOLEAN DEFAULT FALSE,
     reminder_time DATETIME,
-    course_id INT NULL,
     task_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -239,9 +280,11 @@ CREATE TABLE schedules (
     INDEX idx_user (user_id),
     INDEX idx_course (course_id),
     INDEX idx_task (task_id),
+    INDEX idx_day (day_of_week),
     INDEX idx_start_time (start_time),
     INDEX idx_deadline (deadline),
-    INDEX idx_status (status)
+    INDEX idx_status (status),
+    INDEX idx_active (is_active)
 );
 
 -- Audit logs table for security and tracking

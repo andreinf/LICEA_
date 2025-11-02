@@ -34,38 +34,55 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-primary-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-25 to-accent-25 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-primary-600">LICEA</h2>
-            <p className="text-sm text-gray-600">Sistema Educativo</p>
+        {/* Logo y encabezado */}
+        <div className="text-center">
+          <div className="flex items-center justify-center space-x-4 mb-6">
+            <div className="relative">
+              <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden">
+                <img src="/images/logo-gato.png" alt="LICEA Logo" className="w-12 h-12 object-contain" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-accent-400 rounded-full flex items-center justify-center text-xs text-white font-bold shadow-lg animate-pulse">
+                L
+              </div>
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-700 to-accent-600 bg-clip-text text-transparent">
+                LICEA
+              </h1>
+              <p className="text-sm text-gray-600 font-medium">Sistema Educativo Integral</p>
+            </div>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Iniciar Sesión
+          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
+            Bienvenido de nuevo
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            O{' '}
+          <p className="text-gray-600">
+            ¿No tienes cuenta?{' '}
             <Link
               to="/register"
-              className="font-medium text-primary-600 hover:text-primary-500"
+              className="font-semibold text-primary-600 hover:text-primary-500 transition-colors"
             >
-              crear una nueva cuenta
+              Regístrate aquí
             </Link>
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        {/* Formulario con tarjeta moderna */}
+        <form className="mt-8 space-y-6 bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-primary-200/50 p-8" onSubmit={handleSubmit(onSubmit)}>
           {error && (
-            <div className="rounded-md bg-danger-50 p-4">
-              <div className="text-sm text-danger-700">{error}</div>
+            <div className="rounded-2xl bg-red-50 border-l-4 border-red-400 p-4">
+              <div className="flex items-center">
+                <span className="text-2xl mr-3">⚠️</span>
+                <div className="text-sm text-red-700 font-medium">{error}</div>
+              </div>
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label htmlFor="email" className="label">
-                Correo Electrónico
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                📧 Correo Electrónico
               </label>
               <input
                 {...register('email', {
@@ -76,17 +93,23 @@ const Login: React.FC = () => {
                   },
                 })}
                 type="email"
-                className={`input ${errors.email ? 'input-error' : ''}`}
-                placeholder="Ingresa tu correo electrónico"
+                className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary-200 ${
+                  errors.email 
+                    ? 'border-red-300 bg-red-50 focus:border-red-500' 
+                    : 'border-gray-300 bg-white hover:border-primary-300 focus:border-primary-500'
+                }`}
+                placeholder="tu@email.com"
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-danger-600">{errors.email.message}</p>
+                <p className="mt-2 text-sm text-red-600 flex items-center">
+                  <span className="mr-1">❌</span>{errors.email.message}
+                </p>
               )}
             </div>
 
             <div>
-              <label htmlFor="password" className="label">
-                Contraseña
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                🔒 Contraseña
               </label>
               <input
                 {...register('password', {
@@ -97,24 +120,30 @@ const Login: React.FC = () => {
                   },
                 })}
                 type="password"
-                className={`input ${errors.password ? 'input-error' : ''}`}
-                placeholder="Ingresa tu contraseña"
+                className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary-200 ${
+                  errors.password 
+                    ? 'border-red-300 bg-red-50 focus:border-red-500' 
+                    : 'border-gray-300 bg-white hover:border-primary-300 focus:border-primary-500'
+                }`}
+                placeholder="••••••••"
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-danger-600">{errors.password.message}</p>
+                <p className="mt-2 text-sm text-red-600 flex items-center">
+                  <span className="mr-1">❌</span>{errors.password.message}
+                </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-2">
             <div className="flex items-center">
               <input
                 {...register('rememberMe')}
                 id="rememberMe"
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded-lg transition-all"
               />
-              <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="rememberMe" className="ml-3 block text-sm font-medium text-gray-700">
                 Recordarme
               </label>
             </div>
@@ -122,42 +151,40 @@ const Login: React.FC = () => {
             <div className="text-sm">
               <Link
                 to="/forgot-password"
-                className="font-medium text-primary-600 hover:text-primary-500"
+                className="font-semibold text-primary-600 hover:text-primary-500 transition-colors"
               >
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
           </div>
 
-          <div>
+          <div className="pt-4">
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full flex justify-center"
+              className="w-full bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Ingresando...</span>
+                </>
               ) : (
-                'Iniciar Sesión'
+                <>
+                  <span>🚀</span>
+                  <span>Iniciar Sesión</span>
+                </>
               )}
             </button>
-          </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Demo credentials:
-            </p>
-            <div className="mt-2 text-xs text-gray-500 space-y-1">
-              <div>Admin: admin@licea.edu / password123</div>
-              <div>Instructor: sarah.johnson@licea.edu / password123</div>
-              <div>Student: alice.smith@student.licea.edu / password123</div>
-            </div>
           </div>
         </form>
 
         <div className="text-center">
-          <Link to="/" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Back to home
+          <Link 
+            to="/" 
+            className="inline-flex items-center text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors"
+          >
+            <span className="mr-2">←</span> Volver al inicio
           </Link>
         </div>
       </div>

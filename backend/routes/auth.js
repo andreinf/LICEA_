@@ -97,13 +97,11 @@ router.post('/register',
       .normalizeEmail()
       .withMessage('Please provide a valid email address'),
     body('password')
-      .isLength({ min: 8 })
-      .withMessage('Password must be at least 8 characters long')
-      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-      .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
-    body('role')
-      .isIn(['student', 'instructor', 'admin'])
-      .withMessage('Role must be student, instructor, or admin'),
+      .isLength({ min: 6 })
+      .withMessage('Password must be at least 6 characters long'),
+    body('institution_id')
+      .isInt()
+      .withMessage('Institution is required'),
     body('privacyConsent')
       .isBoolean()
       .custom(value => value === true)
@@ -120,7 +118,7 @@ router.post('/register',
       throw new APIError('Validation failed', 400, 'VALIDATION_ERROR');
     }
 
-    const { name, email, password, role, privacyConsent, termsAccepted } = req.body;
+    const { name, email, password, institution_id, privacyConsent, termsAccepted } = req.body;
 
     // Check if email already exists
     const existingUsers = await executeQuery(
@@ -132,6 +130,16 @@ router.post('/register',
       throw new APIError('Email already registered', 409, 'EMAIL_EXISTS');
     }
 
+    // Verify institution exists
+    const institutions = await executeQuery(
+      'SELECT id FROM institutions WHERE id = ? AND is_active = TRUE',
+      [institution_id]
+    );
+
+    if (institutions.length === 0) {
+      throw new APIError('Invalid institution selected', 400, 'INVALID_INSTITUTION');
+    }
+
     // Hash password
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -140,12 +148,15 @@ router.post('/register',
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
+    // All new users are students by default
+    const role = 'student';
+
     // Create user and verification token in transaction
     const queries = [
       {
-        sql: `INSERT INTO users (name, email, password_hash, role, privacy_consent, terms_accepted) 
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        params: [name, email, passwordHash, role, privacyConsent, termsAccepted]
+        sql: `INSERT INTO users (name, email, password_hash, role, institution_id, privacy_consent, terms_accepted) 
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        params: [name, email, passwordHash, role, institution_id, privacyConsent, termsAccepted]
       }
     ];
 
@@ -156,7 +167,7 @@ router.post('/register',
     if (process.env.NODE_ENV === 'development') {
       // Auto-verify in development
       await executeQuery(
-        'UPDATE users SET is_verified = true WHERE id = ?',
+        'UPDATE users SET email_verified = true WHERE id = ?',
         [userId]
       );
       console.log(`🔓 Auto-verified user ${email} for development`);
@@ -228,7 +239,7 @@ router.post('/verify-email',
     // Update user as verified and delete verification token
     const queries = [
       {
-        sql: 'UPDATE users SET is_verified = true WHERE id = ?',
+        sql: 'UPDATE users SET email_verified = true WHERE id = ?',
         params: [verification.user_id]
       },
       {
@@ -274,7 +285,7 @@ router.post('/login',
 
     // Get user with password
     const users = await executeQuery(
-      `SELECT id, name, email, role, password_hash, is_verified, is_active, 
+      `SELECT id, name, email, role, password_hash, email_verified, is_active, 
               failed_login_attempts, locked_until 
        FROM users WHERE email = ?`,
       [email]
@@ -324,7 +335,7 @@ router.post('/login',
     }
 
     // Check email verification
-    if (!user.is_verified) {
+    if (!user.email_verified) {
       throw new APIError('Please verify your email address before logging in', 403, 'EMAIL_NOT_VERIFIED');
     }
 

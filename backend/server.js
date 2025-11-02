@@ -16,18 +16,21 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 // Import routes - usando versiones simples sin problemas ESM
 const authRoutes = require('./routes/auth');
-// const userRoutes = require('./routes/users');
+const userRoutes = require('./routes/users');
 const coursesApiRoutes = require('./routes/courses-api');
 const gradesApiRoutes = require('./routes/grades-api');
 const schedulesApiRoutes = require('./routes/schedules-api');
 // const materialRoutes = require('./routes/materials');
-// const taskRoutes = require('./routes/tasks');
-// const submissionRoutes = require('./routes/submissions');
-// const attendanceRoutes = require('./routes/attendance');
+const taskRoutes = require('./routes/tasks');
+const submissionRoutes = require('./routes/submissions');
+const groupRoutes = require('./routes/groups');
+const attendanceRoutes = require('./routes/attendance');
 // const alertRoutes = require('./routes/alerts');
-const scheduleRoutes = require('./routes/schedules-simple');
 // const reportRoutes = require('./routes/reports');
-const chatRoutes = require('./routes/chat-simple');
+const chatRoutes = require('./routes/chat');
+const aiAssistantRoutes = require('./routes/ai-assistant');
+const notificationRoutes = require('./routes/notifications');
+const institutionRoutes = require('./routes/institutions');
 
 // Create Express app
 const app = express();
@@ -86,13 +89,17 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
 }));
 
-// Rate limiting
+// Rate limiting (más permisivo en desarrollo)
 const limiter = rateLimit({
-  windowMs: (process.env.RATE_LIMIT_WINDOW || 15) * 60 * 1000, // 15 minutes
-  max: process.env.RATE_LIMIT_MAX_REQUESTS || 100, // limit each IP to 100 requests per windowMs
+  windowMs: (process.env.RATE_LIMIT_WINDOW || 1) * 60 * 1000, // 1 minuto
+  max: process.env.RATE_LIMIT_MAX_REQUESTS || 1000, // 1000 requests por minuto en desarrollo
   message: {
     error: 'Too many requests from this IP, please try again later.',
   },
+  skip: (req) => {
+    // En desarrollo, ser más permisivo
+    return process.env.NODE_ENV === 'development';
+  }
 });
 
 app.use('/api/', limiter);
@@ -125,18 +132,21 @@ app.use('/uploads', express.static('uploads'));
 
 // API routes - habilitando rutas simples funcionando
 app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/courses', coursesApiRoutes);
 app.use('/api/grades', gradesApiRoutes);
-app.use('/api/schedules-new', schedulesApiRoutes);
+app.use('/api/schedules', schedulesApiRoutes);
 // app.use('/api/materials', materialRoutes);
-// app.use('/api/tasks', taskRoutes);
-// app.use('/api/submissions', submissionRoutes);
-// app.use('/api/attendance', attendanceRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/submissions', submissionRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/attendance', attendanceRoutes);
 // app.use('/api/alerts', alertRoutes);
-app.use('/api/schedules', scheduleRoutes);
 // app.use('/api/reports', reportRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/ai-assistant', aiAssistantRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/institutions', institutionRoutes);
 
 // Welcome message
 app.get('/', (req, res) => {

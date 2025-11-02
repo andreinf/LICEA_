@@ -40,7 +40,7 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
   }
   
   if (search) {
-    whereConditions.push('(courses.title LIKE ? OR courses.description LIKE ?)');
+    whereConditions.push('(courses.name LIKE ? OR courses.description LIKE ?)');
     params.push(`%${search}%`, `%${search}%`);
   }
   
@@ -123,8 +123,8 @@ router.get('/:id',
     // Get enrolled students count
     const [enrollmentCount] = await executeQuery(`
       SELECT COUNT(*) as count 
-      FROM enrollments 
-      WHERE course_id = ? AND status = 'enrolled'
+      FROM course_enrollments 
+      WHERE course_id = ? AND status = 'active'
     `, [courseId]);
     
     const course = {
@@ -153,7 +153,7 @@ router.post('/',
   verifyToken,
   requireRole('admin', 'instructor'),
   [
-    body('title').trim().isLength({ min: 3, max: 255 }).withMessage('Title must be between 3 and 255 characters'),
+    body('name').trim().isLength({ min: 3, max: 255 }).withMessage('Name must be between 3 and 255 characters'),
     body('description').optional().isString(),
     body('code').trim().isLength({ min: 2, max: 50 }).withMessage('Code must be between 2 and 50 characters'),
     body('category').optional().isString(),
@@ -168,7 +168,7 @@ router.post('/',
     validateRequest(req);
     
     const {
-      title, description, code, category, level, credits, 
+      name, description, code, category, level, credits, 
       max_students, start_date, end_date, syllabus
     } = req.body;
     
@@ -185,11 +185,11 @@ router.post('/',
     
     const result = await executeQuery(`
       INSERT INTO courses (
-        title, description, code, instructor_id, category, level, 
+        name, description, code, instructor_id, category, level, 
         credits, max_students, start_date, end_date, syllabus, is_active
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
     `, [
-      title, description, code, instructor_id, category || null, level || 'beginner',
+      name, description, code, instructor_id, category || null, level || 'beginner',
       credits || 3, max_students || 30, start_date || null, end_date || null, syllabus || null
     ]);
     
@@ -222,7 +222,7 @@ router.post('/:id/enroll',
     
     // Check if course exists and is active
     const courses = await executeQuery(`
-      SELECT id, title, max_students, current_students
+      SELECT id, name, max_students, current_students
       FROM courses 
       WHERE id = ? AND is_active = TRUE
     `, [courseId]);
@@ -262,7 +262,74 @@ router.post('/:id/enroll',
     
     res.json({
       success: true,
-      message: `Successfully enrolled in ${course.title}`
+      message: `Successfully enrolled in ${course.name}`
+    });
+  })
+);
+
+/**
+ * @swagger
+ * /api/courses/enroll-by-code:
+ *   post:
+ *     summary: Enroll in course by code
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/enroll-by-code',
+  verifyToken,
+  requireRole('student'),
+  [body('code').trim().notEmpty().withMessage('Course code is required')],
+  asyncHandler(async (req, res) => {
+    validateRequest(req);
+    
+    const { code } = req.body;
+    const studentId = req.user.id;
+    
+    // Find course by code
+    const courses = await executeQuery(`
+      SELECT id, name, max_students, current_students, instructor_id
+      FROM courses 
+      WHERE code = ? AND is_active = TRUE
+    `, [code]);
+    
+    if (courses.length === 0) {
+      throw new APIError('Course not found with this code', 404, 'COURSE_NOT_FOUND');
+    }
+    
+    const course = courses[0];
+    
+    // Check if already enrolled
+    const existingEnrollments = await executeQuery(`
+      SELECT id FROM course_enrollments 
+      WHERE student_id = ? AND course_id = ?
+    `, [studentId, course.id]);
+    
+    if (existingEnrollments.length > 0) {
+      throw new APIError('Already enrolled in this course', 409, 'ALREADY_ENROLLED');
+    }
+    
+    // Check capacity
+    if (course.current_students >= course.max_students) {
+      throw new APIError('Course is full', 409, 'COURSE_FULL');
+    }
+    
+    // Enroll student
+    await executeTransaction([
+      {
+        sql: 'INSERT INTO course_enrollments (student_id, course_id, status) VALUES (?, ?, "active")',
+        params: [studentId, course.id]
+      },
+      {
+        sql: 'UPDATE courses SET current_students = current_students + 1 WHERE id = ?',
+        params: [course.id]
+      }
+    ]);
+    
+    res.json({
+      success: true,
+      message: `Successfully enrolled in ${course.name}`,
+      data: { courseId: course.id, courseName: course.name }
     });
   })
 );
@@ -288,14 +355,12 @@ router.get('/my/courses', verifyToken, asyncHandler(async (req, res) => {
       SELECT 
         c.*,
         u.name as instructor_name,
-        e.enrolled_at,
-        e.status as enrollment_status,
-        e.final_grade
+        e.status as enrollment_status
       FROM courses c
       JOIN users u ON c.instructor_id = u.id
-      JOIN enrollments e ON c.id = e.course_id
-      WHERE e.student_id = ? AND c.is_active = TRUE
-      ORDER BY e.enrolled_at DESC
+      JOIN course_enrollments e ON c.id = e.course_id
+      WHERE e.student_id = ? AND c.is_active = TRUE AND e.status = 'active'
+      ORDER BY c.created_at DESC
     `, [userId]);
   } else if (userRole === 'instructor') {
     // Get teaching courses

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import NotificationBell from '../NotificationBell';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -37,24 +38,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       href: `/dashboard/${user?.role}`,
       icon: '🏠',
       current: location.pathname === `/dashboard/${user?.role}`,
+      roles: ['admin', 'instructor', 'student'],
     },
     {
       name: 'Cursos',
       href: '/dashboard/courses',
       icon: '📚',
       current: location.pathname.startsWith('/dashboard/courses'),
+      roles: ['admin', 'instructor', 'student'],
     },
     {
       name: 'Cronograma',
       href: '/dashboard/schedule',
       icon: '📅',
       current: location.pathname.startsWith('/dashboard/schedule'),
+      roles: ['instructor', 'student'], // Removed admin
     },
     {
       name: 'Asistente IA',
-      href: '/dashboard/chatbot',
+      href: '/dashboard/ai-assistant',
       icon: '🤖',
-      current: location.pathname.startsWith('/dashboard/chatbot'),
+      current: location.pathname.startsWith('/dashboard/ai-assistant'),
+      roles: ['admin', 'instructor', 'student'],
     },
   ];
 
@@ -65,19 +70,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       href: '/dashboard/users',
       icon: '👥',
       current: location.pathname.startsWith('/dashboard/users'),
+      roles: ['admin'],
     });
     navigation.splice(2, 0, {
-      name: 'Reportes',
-      href: '/dashboard/reports',
-      icon: '📊',
-      current: location.pathname.startsWith('/dashboard/reports'),
-    });
-    // Add after the main navigation items
-    navigation.push({
-      name: 'Configuración',
-      href: '/dashboard/settings',
-      icon: '⚙️',
-      current: location.pathname.startsWith('/dashboard/settings'),
+      name: 'Instituciones',
+      href: '/dashboard/institutions',
+      icon: '🏫',
+      current: location.pathname.startsWith('/dashboard/institutions'),
+      roles: ['admin'],
     });
   }
 
@@ -87,18 +87,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       href: '/dashboard/assignments',
       icon: '📝',
       current: location.pathname.startsWith('/dashboard/assignments'),
+      roles: ['instructor'],
     });
     navigation.push({
       name: 'Estudiantes',
       href: '/dashboard/students',
       icon: '🎓',
       current: location.pathname.startsWith('/dashboard/students'),
-    });
-    navigation.push({
-      name: 'Calificaciones',
-      href: '/dashboard/grading',
-      icon: '📊',
-      current: location.pathname.startsWith('/dashboard/grading'),
+      roles: ['instructor'],
     });
   }
 
@@ -108,18 +104,21 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       href: '/dashboard/assignments',
       icon: '📝',
       current: location.pathname.startsWith('/dashboard/assignments'),
+      roles: ['student'],
     });
     navigation.push({
       name: 'Calificaciones',
       href: '/dashboard/grades',
       icon: '📈',
       current: location.pathname.startsWith('/dashboard/grades'),
+      roles: ['student'],
     });
     navigation.push({
-      name: 'Progreso',
-      href: '/dashboard/progress',
-      icon: '📈',
-      current: location.pathname.startsWith('/dashboard/progress'),
+      name: 'Grupos',
+      href: '/dashboard/groups',
+      icon: '👥',
+      current: location.pathname.startsWith('/dashboard/groups'),
+      roles: ['student'],
     });
   }
 
@@ -149,8 +148,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-xl">
-                  <span className="text-2xl">🎓</span>
+                <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-xl overflow-hidden">
+                  <img src="/images/logo-gato.png" alt="LICEA Logo" className="w-10 h-10 object-contain" />
                 </div>
                 <div className="absolute -top-1 -right-1 w-6 h-6 bg-accent-400 rounded-full flex items-center justify-center text-xs text-white font-bold shadow-lg animate-pulse">
                   L
@@ -181,7 +180,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             Navegación Principal
           </div>
           
-          {navigation.map((item, index) => (
+          {navigation.filter(item => !item.roles || item.roles.includes(user?.role || '')).map((item, index) => (
             <div key={item.name} className="relative">
               <button
                 onClick={() => handleNavigation(item.href)}
@@ -260,25 +259,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </div>
           
           {/* Botones de acción modernos */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             <button
-              onClick={handleGoHome}
-              className="group bg-gradient-to-r from-primary-500 to-primary-400 hover:from-primary-400 hover:to-primary-300 text-white px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+              onClick={() => navigate('/dashboard/profile')}
+              className="group w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span>Página Principal</span>
+              <span>⚙️</span>
+              <span>Mi Perfil</span>
             </button>
-            <button
-              onClick={handleLogout}
-              className="group bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 text-white px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span>Cerrar Sesión</span>
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleGoHome}
+                className="group bg-gradient-to-r from-primary-500 to-primary-400 hover:from-primary-400 hover:to-primary-300 text-white px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span>Inicio</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="group bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 text-white px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Salir</span>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -312,14 +320,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               {/* Sección de usuario en header */}
               <div className="flex items-center space-x-4">
                 {/* Notificaciones */}
-                <button className="relative w-12 h-12 bg-primary-100 hover:bg-primary-200 rounded-xl flex items-center justify-center transition-all duration-300 group">
-                  <svg className="w-6 h-6 text-primary-600 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5V9a6 6 0 10-12 0v3l-5 5h5m0 0v1a3 3 0 106 0v-1m-6 0h6" />
-                  </svg>
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
-                    3
-                  </div>
-                </button>
+                <NotificationBell />
                 
                 {/* Perfil de usuario compacto */}
                 <div className="hidden sm:flex items-center space-x-3 bg-gradient-to-r from-primary-50 to-accent-50 px-4 py-2 rounded-xl border border-primary-200/50">
