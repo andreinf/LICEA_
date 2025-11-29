@@ -1,13 +1,13 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// Database connection configuration
+// Database connection configuration using Railway environment variables
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '',   // <--- Cambiado de DB_PASSWORD a DB_PASS
-  database: process.env.DB_NAME || 'licea_platform',
+  host: process.env.MYSQLHOST,           // Host proporcionado por Railway
+  port: Number(process.env.MYSQLPORT),   // Puerto proporcionado por Railway (3306)
+  user: process.env.MYSQLUSER,           // Usuario de la DB
+  password: process.env.MYSQLPASSWORD,   // Contraseña de la DB
+  database: process.env.MYSQLDATABASE,   // Nombre de la DB
   connectionLimit: 10,
   charset: 'utf8mb4',
   idleTimeout: 60000,
@@ -25,6 +25,7 @@ async function testConnection() {
     connection.release();
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
+    console.log('DB Config used:', dbConfig); // Debug info
     process.exit(1);
   }
 }
@@ -43,16 +44,16 @@ async function executeQuery(sql, params = []) {
 // Execute transaction
 async function executeTransaction(queries) {
   const connection = await pool.getConnection();
-  
+
   try {
     await connection.beginTransaction();
-    
+
     const results = [];
     for (const { sql, params } of queries) {
       const [result] = await connection.execute(sql, params || []);
       results.push(result);
     }
-    
+
     await connection.commit();
     return results;
   } catch (error) {
@@ -66,15 +67,15 @@ async function executeTransaction(queries) {
 // Get paginated results
 async function getPaginatedResults(baseQuery, countQuery, params = [], page = 1, limit = 10) {
   const offset = (page - 1) * limit;
-  
+
   // Get total count
   const [countResult] = await pool.execute(countQuery, params);
   const total = countResult[0].count;
-  
+
   // Get paginated data
   const paginatedQuery = `${baseQuery} LIMIT ${limit} OFFSET ${offset}`;
   const [rows] = await pool.execute(paginatedQuery, params);
-  
+
   return {
     data: rows,
     pagination: {
